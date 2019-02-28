@@ -1,14 +1,15 @@
 {
   "name": "stuff-share",
   "version": "1.0.0",
-  "description": "",
+  "description": "RESTful API with Node.js, Express, and PostgreSQL",
   "main": "server.js",
   "dependencies": {
     "body-parser": "^1.18.3",
     "compression": "^1.7.3",
     "express": "^4.16.4",
     "helmet": "^3.15.1",
-    "morgan": "^1.9.1"
+    "morgan": "^1.9.1",
+    "pg": "^7.8.1"
   },
   "devDependencies": {
     "concurrently": "^4.1.0",
