@@ -4,6 +4,16 @@ const path = require('path')
 const compression = require('compression')
 const morgan = require('morgan')
 const helmet = require('helmet')
+const { Pool } = require('pg')
+const env = require('./env')
+
+const pool = new Pool({
+  user: env.DBuser,
+  host: 'localhost',
+  database: 'CarouShare',
+  password: env.DBpassword,
+  port: 5432,
+})
 
 const app = express()
 const port = process.env.PORT || 5000
