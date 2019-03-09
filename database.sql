@@ -1,4 +1,12 @@
---user is a superclass, and a user has to be either a loaner or borrower, and can be both
+
+-- delete tables if already exists
+DROP TABLE IF EXISTS UserAccount CASCADE;
+DROP TABLE IF EXISTS Loaner CASCADE;
+DROP TABLE IF EXISTS Borrower CASCADE;
+DROP TABLE IF EXISTS LoanerItem CASCADE;
+DROP TABLE IF EXISTS InvoicedLoan CASCADE;
+
+-- user is a superclass, and a user has to be either a loaner or borrower, and can be both
 create table UserAccount(
 	userID integer,
 	name varchar(80) not null,
