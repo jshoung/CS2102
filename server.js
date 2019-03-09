@@ -10,7 +10,7 @@ const env = require('./env')
 const pool = new Pool({
   user: env.DBuser,
   host: 'localhost',
-  database: 'CarouShare',
+  database: env.DBname,
   password: env.DBpassword,
   port: 5432,
 })
