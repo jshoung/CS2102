@@ -25,8 +25,15 @@ app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(express.static(path.join(__dirname, 'client/build')))
 
-app.get('/api/hello', (req, res) => {
-  res.send({ data: { title: 'Hello World', description: 'We share stuff.' } })
+/* This endpoint gets all the users currently in the database
+   Might need to specify parameters in req if we want to do filtering
+*/
+app.post('/stuffshare/users', async (req, res) => {
+  const client = await pool.connect()
+  let data
+  data = await client.query('select * from useraccount')
+
+  res.send({ data: data })
 })
 
 app.post('/api/world', (req, res) => {
