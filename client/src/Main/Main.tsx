@@ -1,8 +1,6 @@
 import React, { Component } from 'react'
 import axios from 'axios'
-import { Nav, Dropdown, InputGroup, FormControl, Col, Row } from "react-bootstrap";
-import DropdownItem from 'react-bootstrap/DropdownItem';
-import DropdownMenu from 'react-bootstrap/DropdownMenu';
+import { Nav, Dropdown, , Col, Row } from "react-bootstrap";
 
 class Main extends Component {
   state = {
@@ -30,7 +28,8 @@ class Main extends Component {
 
   render() {
     const { data } = this.state
-    if (data === null) return <p>Loading ...</p>
+    let content = <div>Item name</div>
+    // if (data === null) return <p>Loading ...</p>
 
     return (
       // <div className="container">
@@ -76,6 +75,7 @@ class Main extends Component {
             <Nav.Link eventKey="Past Loans" onSelect={() => this.changeTab("Past Loans")}>Past Loans</Nav.Link>
           </Nav.Item>
         </Nav>
+        {content}
       </div>
     )
   }
