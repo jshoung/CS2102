@@ -1,16 +1,16 @@
 import React, { Component } from 'react'
 import axios from 'axios'
-import { Nav, Dropdown, , Col, Row } from "react-bootstrap";
+import { Nav, Dropdown, Col, Row } from "react-bootstrap";
 
 class Main extends Component {
   state = {
-    data: { title: '', description: '' },
-    user: "Oscar",
+    data: { rows:[{userid:0 , name:'', address:''}] },
+    user: null,
     tab: "Items",
   }
 
   async componentDidMount() {
-    const payload = (await axios.get(`/api/hello`)).data
+    const payload = (await axios.post(`http://localhost:5000/stuffshare/users`)).data
     console.log(payload)
 
     this.setState({
@@ -30,6 +30,14 @@ class Main extends Component {
     const { data } = this.state
     let content = <div>Item name</div>
     // if (data === null) return <p>Loading ...</p>
+    let dropdownMenu:any[] = []
+
+    data.rows.forEach(row => {
+      let name = row.name;
+      dropdownMenu.push(
+        <Dropdown.Item onSelect={() => this.changeUser(name)}>{name}</Dropdown.Item>
+      )
+    });
 
     return (
       // <div className="container">
@@ -48,11 +56,8 @@ class Main extends Component {
               Select User
             </Dropdown.Toggle>
             <Dropdown.Menu>
-                <Dropdown.Item onSelect={() => this.changeUser("Oscar")}>Oscar</Dropdown.Item>
-                <Dropdown.Item onSelect={() => this.changeUser("Nicholas")}>Nicholas</Dropdown.Item>
-                <Dropdown.Item onSelect={() => this.changeUser("Lim Jie")}>Lim Jie</Dropdown.Item>
-                <Dropdown.Item onSelect={() => this.changeUser("Julian")}>Julian</Dropdown.Item>
-              </Dropdown.Menu>
+              {dropdownMenu}
+            </Dropdown.Menu>
           </Dropdown>
           </Col>
           <Col>

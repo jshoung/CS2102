@@ -6,6 +6,7 @@ const morgan = require('morgan')
 const helmet = require('helmet')
 const { Pool } = require('pg')
 const env = require('./env')
+const cors = require('cors')
 
 const pool = new Pool({
   user: env.DBuser,
@@ -24,6 +25,7 @@ app.use(morgan('combined'))
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(express.static(path.join(__dirname, 'client/build')))
+app.use(cors())
 
 /* This endpoint gets all the users currently in the database
    Might need to specify parameters in req if we want to do filtering
@@ -32,7 +34,7 @@ app.post('/stuffshare/users', async (req, res) => {
   const client = await pool.connect()
   let data
   data = await client.query('select * from useraccount')
-
+  
   res.send({ data: data })
 })
 
