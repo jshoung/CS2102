@@ -1,16 +1,16 @@
 import React, { Component } from 'react'
 import axios from 'axios'
-import { Nav, Dropdown, Col, Row } from "react-bootstrap";
+import { Nav, Dropdown, Col, Row } from 'react-bootstrap'
 
 class Main extends Component {
   state = {
-    data: { rows:[{userid:0 , name:'', address:''}] },
+    data: { rows: [{ userid: 0, name: '', address: '' }] },
     user: null,
-    tab: "Items",
+    tab: 'Items',
   }
 
   async componentDidMount() {
-    const payload = (await axios.post(`http://localhost:5000/stuffshare/users`)).data
+    const payload = (await axios.post(`http://localhost:5000/users`)).data
     console.log(payload)
 
     this.setState({
@@ -19,25 +19,27 @@ class Main extends Component {
   }
 
   changeUser = (user: string) => {
-    this.setState({user})
-  } 
+    this.setState({ user })
+  }
 
   changeTab = (tab: string) => {
-    this.setState({tab})
+    this.setState({ tab })
   }
 
   render() {
     const { data } = this.state
     let content = <div>Item name</div>
     // if (data === null) return <p>Loading ...</p>
-    let dropdownMenu:any[] = []
+    let dropdownMenu: any[] = []
 
-    data.rows.forEach(row => {
-      let name = row.name;
+    data.rows.forEach((row) => {
+      let name = row.name
       dropdownMenu.push(
-        <Dropdown.Item onSelect={() => this.changeUser(name)}>{name}</Dropdown.Item>
+        <Dropdown.Item onSelect={() => this.changeUser(name)}>
+          {name}
+        </Dropdown.Item>,
       )
-    });
+    })
 
     return (
       // <div className="container">
@@ -51,33 +53,43 @@ class Main extends Component {
       <div className="container">
         <Row>
           <Col md="auto">
-          <Dropdown>
-            <Dropdown.Toggle variant="primary" id="dropdown-basic">
-              Select User
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
-              {dropdownMenu}
-            </Dropdown.Menu>
-          </Dropdown>
+            <Dropdown>
+              <Dropdown.Toggle variant="primary" id="dropdown-basic">
+                Select User
+              </Dropdown.Toggle>
+              <Dropdown.Menu>{dropdownMenu}</Dropdown.Menu>
+            </Dropdown>
           </Col>
           <Col>
-          <h4 className="user">
-  	        {this.state.user}
-          </h4>
+            <h4 className="user">{this.state.user}</h4>
           </Col>
         </Row>
         <Nav variant="tabs" activeKey={this.state.tab}>
           <Nav.Item>
-            <Nav.Link eventKey="Items" onSelect={() => this.changeTab("Items")}>Items</Nav.Link>
+            <Nav.Link eventKey="Items" onSelect={() => this.changeTab('Items')}>
+              Items
+            </Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link eventKey="Loans" onSelect={() => this.changeTab("Loans")}>Loans</Nav.Link>
+            <Nav.Link eventKey="Loans" onSelect={() => this.changeTab('Loans')}>
+              Loans
+            </Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link eventKey="Other Users" onSelect={() => this.changeTab("Other Users")}>Other Users</Nav.Link>
+            <Nav.Link
+              eventKey="Other Users"
+              onSelect={() => this.changeTab('Other Users')}
+            >
+              Other Users
+            </Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link eventKey="Past Loans" onSelect={() => this.changeTab("Past Loans")}>Past Loans</Nav.Link>
+            <Nav.Link
+              eventKey="Past Loans"
+              onSelect={() => this.changeTab('Past Loans')}
+            >
+              Past Loans
+            </Nav.Link>
           </Nav.Item>
         </Nav>
         {content}
