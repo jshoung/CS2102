@@ -26,7 +26,9 @@ create table Borrower(
 
 create table LoanerItem(
 	itemID integer,
-	value integer,
+	itemName varchar(80) not null,
+	value integer not null,
+	itemDescription varchar(10000),
 	userID integer,
 	primary key (userID, itemID),
 	foreign key (userID) references Loaner on delete cascade
@@ -77,11 +79,11 @@ INSERT INTO Borrower (userID) VALUES (81),(82),(83),(84),(85),(86),(87),(88),(89
 INSERT INTO Borrower (userID) VALUES (91),(92),(93),(94),(95),(96),(97),(98),(99),(100);
 
 --LoanerItem current set as each loaner has 1 item on loan.  ItemID ranges from 100 to 149 inclusive
-INSERT INTO LoanerItem (itemID,value,userID) VALUES (100,5,1),(101,2,2),(102,6,3),(103,3,4),(104,9,5),(105,4,6),(106,2,7),(107,10,8),(108,1,9),(109,6,10);
-INSERT INTO LoanerItem (itemID,value,userID) VALUES (110,10,11),(111,9,12),(112,10,13),(113,9,14),(114,6,15),(115,7,16),(116,10,17),(117,1,18),(118,5,19),(119,7,20);
-INSERT INTO LoanerItem (itemID,value,userID) VALUES (120,1,21),(121,5,22),(122,2,23),(123,8,24),(124,7,25),(125,7,26),(126,4,27),(127,10,28),(128,7,29),(129,5,30);
-INSERT INTO LoanerItem (itemID,value,userID) VALUES (130,5,31),(131,7,32),(132,2,33),(133,8,34),(134,9,35),(135,7,36),(136,6,37),(137,5,38),(138,4,39),(139,6,40);
-INSERT INTO LoanerItem (itemID,value,userID) VALUES (140,6,41),(141,6,42),(142,7,43),(143,9,44),(144,6,45),(145,9,46),(146,8,47),(147,6,48),(148,9,49),(149,2,50);
+INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (100,'Fuji Camera', 5,1),(101,'iPad Pro',2,2),(102,'Toshiba Laptop',6,3),(103,'Sony Headphones',3,4),(104,'Canon Camera Lens',9,5),(105,'Black Tuxedo',4,6),(106,'Pink Shoes',2,7),(107,'Metal Watch',10,8),(108,'Vintage Music CD',1,9),(109,'Spiderman Movie',6,10);
+INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (110,'Fuji Camera',10,11),(111,'iPad Pro',9,12),(112,'Toshiba Laptop',10,13),(113,'Sony Headphones',9,14),(114,'Canon Camera Lens',6,15),(115,'Black Tuxedo',7,16),(116,'Pink Shoes',10,17),(117,'Metal Watch',1,18),(118,'Vintage Music CD',5,19),(119,'Spiderman Movie',7,20);
+INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (120,'Fuji Camera',1,21),(121,'iPad Pro',5,22),(122,'Toshiba Laptop',2,23),(123,'Sony Headphones',8,24),(124,'Canon Camera Lens',7,25),(125,'Black Tuxedo',7,26),(126,'Pink Shoes',4,27),(127,'Metal Watch',10,28),(128,'Vintage Music CD',7,29),(129,'Spiderman Movie',5,30);
+INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (130,'Fuji Camera',5,31),(131,'iPad Pro',7,32),(132,'Toshiba Laptop',2,33),(133,'Sony Headphones',8,34),(134,'Canon Camera Lens',9,35),(135,'Black Tuxedo',7,36),(136,'Pink Shoes',6,37),(137,'Metal Watch',5,38),(138,'Vintage Music CD',4,39),(139,'Spiderman Movie',6,40);
+INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (140,'Fuji Camera',6,41),(141,'iPad Pro',6,42),(142,'Toshiba Laptop',7,43),(143,'Sony Headphones',9,44),(144,'Canon Camera Lens',6,45),(145,'Black Tuxedo',9,46),(146,'Pink Shoes',8,47),(147,'Metal Watch',6,48),(148,'Vintage Music CD',9,49),(149,'Spiderman Movie',2,50);
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 invoicedLoans
