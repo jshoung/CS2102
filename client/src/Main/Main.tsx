@@ -7,7 +7,7 @@ class Main extends Component {
     data: { rows: [{ userid: 0, name: '', address: '' }] },
     user: {name:'', userid: 0},
     tab: '',
-    userItems: [{itemid: 0, value: 0}]
+    userItems: [{itemdescription:'', itemid: 0, itemname:'', value: 0}]
   }
 
   async componentDidMount() {
@@ -44,8 +44,10 @@ class Main extends Component {
           innerContent.push(
             <Card>
               <Card.Body>
-                <Card.Title>{row.itemid}</Card.Title>
+                <Card.Title>{row.itemname}</Card.Title>
                 <Card.Subtitle>Price: {row.value}</Card.Subtitle>
+                <Card.Text>{row.itemdescription}test description</Card.Text>
+                <Card.Footer>Item Id: {row.itemid}</Card.Footer>
               </Card.Body>
             </Card>)
         })
