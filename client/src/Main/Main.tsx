@@ -1,12 +1,13 @@
 import React, { Component } from 'react'
 import axios from 'axios'
-import { Nav, Dropdown, Col, Row } from 'react-bootstrap'
+import { Nav, Dropdown, Col, Row, Card, CardGroup } from 'react-bootstrap'
 
 class Main extends Component {
   state = {
     data: { rows: [{ userid: 0, name: '', address: '' }] },
-    user: null,
-    tab: 'Items',
+    user: {name:'', userid: 0},
+    tab: '',
+    userItems: [{itemdescription:'', itemid: 0, itemname:'', value: 0}]
   }
 
   async componentDidMount() {
@@ -18,8 +19,14 @@ class Main extends Component {
     })
   }
 
-  changeUser = (user: string) => {
-    this.setState({ user })
+  changeUser = (name: string, userid: number) => {
+    axios.post(`http://localhost:5000/users/items`, {
+      userId: userid
+    }).then(items => {
+      console.log(items)
+      this.setState({userItems: items.data.data.rows})
+    })
+    this.setState({ user: {name, userid} })
   }
 
   changeTab = (tab: string) => {
@@ -27,57 +34,86 @@ class Main extends Component {
   }
 
   render() {
-    const { data } = this.state
-    let content = <div>Item name</div>
-    // if (data === null) return <p>Loading ...</p>
-    let dropdownMenu: any[] = []
+    const { data, tab, user, userItems } = this.state
+    let content = null;
+    
+    switch (tab) {
+      case 'Items':
+        let innerContent: any[] = []
+        userItems.forEach(row => {
+          innerContent.push(
+            <Card>
+              <Card.Body>
+                <Card.Title>{row.itemname}</Card.Title>
+                <Card.Subtitle>Price: {row.value}</Card.Subtitle>
+                <Card.Text>{row.itemdescription}test description</Card.Text>
+                <Card.Footer>Item Id: {row.itemid}</Card.Footer>
+              </Card.Body>
+            </Card>)
+        })
+        content = <CardGroup>{innerContent}</CardGroup>
+        break;
+      case 'Loans':
+        content = <div>Loan name</div>;
+        break;
+      case 'Other Users':
+        content = <div>Other users</div>;
+        break;
+      case 'Past Loans':
+        content = <div>Past Loan name</div>;
+        break;
+      default:
+        break;
+    }
 
-    data.rows.forEach((row) => {
+    let dropdownMenu: any[] = []
+    data.rows.forEach(row => {
       let name = row.name
+      let userid = row.userid
       dropdownMenu.push(
-        <Dropdown.Item onSelect={() => this.changeUser(name)}>
+        <Dropdown.Item onSelect={() => this.changeUser(name, userid)}>
           {name}
         </Dropdown.Item>,
       )
     })
 
     return (
-      // <div className="container">
-      //   <div className="row">
-      //     <div className="jumbotron col-12 text-center">
-      //       <h1 className="display-3">{data.title}</h1>
-      //       <p className="lead">{data.description}</p>
+      // <div className='container'>
+      //   <div className='row'>
+      //     <div className='jumbotron col-12 text-center'>
+      //       <h1 className='display-3'>{data.title}</h1>
+      //       <p className='lead'>{data.description}</p>
       //     </div>
       //   </div>
       // </div>
-      <div className="container">
+      <div className='container'>
         <Row>
-          <Col md="auto">
+          <Col md='auto'>
             <Dropdown>
-              <Dropdown.Toggle variant="primary" id="dropdown-basic">
+              <Dropdown.Toggle variant='primary' id='dropdown-basic'>
                 Select User
               </Dropdown.Toggle>
               <Dropdown.Menu>{dropdownMenu}</Dropdown.Menu>
             </Dropdown>
           </Col>
           <Col>
-            <h4 className="user">{this.state.user}</h4>
+            <h4 className='user'>{user.name}</h4>
           </Col>
         </Row>
-        <Nav variant="tabs" activeKey={this.state.tab}>
+        <Nav variant='tabs' activeKey={tab}>
           <Nav.Item>
-            <Nav.Link eventKey="Items" onSelect={() => this.changeTab('Items')}>
+            <Nav.Link eventKey='Items' onSelect={() => this.changeTab('Items')}>
               Items
             </Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link eventKey="Loans" onSelect={() => this.changeTab('Loans')}>
+            <Nav.Link eventKey='Loans' onSelect={() => this.changeTab('Loans')}>
               Loans
             </Nav.Link>
           </Nav.Item>
           <Nav.Item>
             <Nav.Link
-              eventKey="Other Users"
+              eventKey='Other Users'
               onSelect={() => this.changeTab('Other Users')}
             >
               Other Users
@@ -85,7 +121,7 @@ class Main extends Component {
           </Nav.Item>
           <Nav.Item>
             <Nav.Link
-              eventKey="Past Loans"
+              eventKey='Past Loans'
               onSelect={() => this.changeTab('Past Loans')}
             >
               Past Loans
