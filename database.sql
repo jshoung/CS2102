@@ -1,10 +1,21 @@
-
 -- delete tables if already exists
 DROP TABLE IF EXISTS UserAccount CASCADE;
+DROP TABLE IF EXISTS Report CASCADE;
+DROP TABLE IF EXISTS Writes CASCADE;
+DROP TABLE IF EXISTS getReported CASCADE;
+DROP TABLE IF EXISTS InterestGroup CASCADE;
+DROP TABLE IF EXISTS Joins CASCADE;
+DROP TABLE IF EXISTS OrganizedEvent CASCADE;
+DROP TABLE IF EXISTS UserReviewItem CASCADE;
+DROP TABLE IF EXISTS Upvote CASCADE;
+DROP TABLE IF EXISTS Advertisement CASCADE;
 DROP TABLE IF EXISTS Loaner CASCADE;
 DROP TABLE IF EXISTS Borrower CASCADE;
 DROP TABLE IF EXISTS LoanerItem CASCADE;
 DROP TABLE IF EXISTS InvoicedLoan CASCADE;
+DROP TABLE IF EXISTS Promote CASCADE;
+DROP TABLE IF EXISTS Bid CASCADE;
+DROP TABLE IF EXISTS Chooses CASCADE;
 
 -- user is a superclass, and a user has to be either a loaner or borrower, and can be both
 create table UserAccount(
@@ -14,13 +25,68 @@ create table UserAccount(
 	primary key (userID)
 );
 
+
+-- (reporter, getReported, reason) the primary key because we want the user to report someone else for a particular reason, only once.
+-- if the reporter's value is set to null, then we know that the reporter's account has been deleted.
+create table Report(
+	title varchar(1000),
+	reportDate date,
+	reason varchar(10000),
+	primary key (title, reportDate)
+);
+
+create table Writes(
+	userID integer,
+	title varchar(1000),
+	reportDate date,
+	primary key (userID, title, reportDate),
+	foreign key (userID) references UserAccount on delete cascade,
+	foreign key (title, reportDate) references Report on delete cascade
+);
+
+create table getReported(
+	userID integer,
+	title varchar(1000),
+	reportDate date,
+	primary key (userID, title, reportDate),
+	foreign key (userID) references UserAccount on delete cascade,
+	foreign key (title, reportDate) references Report on delete cascade
+);
+
+create table InterestGroup(
+	groupName varchar(80),
+	primary key (groupName)
+);
+
+-- (userID, groupName) is the primary key because each user can only join each group once.  
+-- if either the user or the group is deleted, the 'Join' entry is deleted.
+create table Joins(
+	joinDate date not null,
+	userID integer,
+	groupName varchar(80),
+	primary key (userId, groupName),
+	foreign key (userID) references UserAccount on delete cascade,
+	foreign key (groupName) references InterestGroup on delete cascade
+);
+
+-- if the interest group is deleted, then the entries into organizedEvent is also deleted.
+create table organizedEvent(
+	eventID integer,
+	eventDate date not null,
+	venue varchar(80) not null,
+	organizer varchar(80),
+	primary key (eventID),
+	foreign key (organizer) references InterestGroup on delete cascade
+);
+
+
 create table Loaner(
-	userID integer references UserAccount,
+	userID integer references UserAccount on delete cascade,
 	primary key (userID)
 );
 
 create table Borrower(
-	userID integer references UserAccount,
+	userID integer references UserAccount on delete cascade,
 	primary key (userID)
 );
 
@@ -32,6 +98,81 @@ create table LoanerItem(
 	userID integer,
 	primary key (userID, itemID),
 	foreign key (userID) references Loaner on delete cascade
+);
+
+--we would like the ratings to be between 0 and 5
+create table UserReviewItem(
+	userID integer,
+	itemID integer,
+	itemOwnerID integer,
+	reviewID integer unique not null,
+	reviewComment varchar(1000),
+	reviewDate date not null,
+	rating integer not null,
+	check (0 <= rating),
+	check (rating <= 5),
+	primary key (userID, itemID, reviewID),
+	foreign key (userID) references UserAccount on delete set null,
+	foreign key (itemOwnerID, itemID) references LoanerItem on delete cascade
+);
+
+--when either the userAccount that upvoted, or the review deleted, the upvote will be deleted.
+create table Upvote(
+	userIDUpvoter integer,
+	reviewID integer,
+	reviewUserID integer,
+	itemID integer,
+	primary key (userIDUpvoter, reviewID, reviewUserID, itemID),
+	foreign key (userIDUpvoter) references UserAccount(userID) on delete cascade,
+	foreign key (reviewUserID, itemID, reviewID) references UserReviewItem(userID, itemID, reviewID) on delete cascade
+);
+
+
+-- perhaps the backend can update the highest bidder and the highest bid, after a bid as been made to a adverstisement entry
+create table Advertisement(
+	advID integer,
+	highestBidder integer,
+	minimumPrice integer not null,
+	closingDate date not null,
+	minimumIncrease integer not null,
+	highestBid integer,
+	tier integer,
+	check (minimumIncrease > 0),
+	primary key (advID)
+);
+
+
+-- upon a promotion, the backend should update the tier of the advertisement.
+-- an advertisement can be only promoted once
+-- QUESTION if the advertisement can only be promoted once, is there really a need for the tier attribute?
+create table Promote(
+	userID integer,
+	itemID integer,
+	advID integer,
+	primary key (userID, itemID, advID),
+	foreign key (userID) references Loaner on delete cascade,
+	foreign key (userID, itemID) references LoanerItem on delete cascade,
+	foreign key (advID) references Advertisement on delete cascade
+);
+
+create table Bid(
+	bidID integer,
+	price integer not null,
+	userID integer,
+	advID integer,
+	primary key (bidID),
+	foreign key (userID) references Borrower on delete cascade,
+	foreign key (advID) references Advertisement on delete cascade
+);
+
+create table Chooses(
+	bidID integer unique not null,
+	userID integer not null,
+	advID integer unique not null,
+	primary key (userID, bidID, advID),
+	foreign key (bidID) references Bid on delete cascade,
+	foreign key (userID) references Loaner on delete cascade,
+	foreign key (advID) references Advertisement on delete cascade
 );
 
 --currently startdate can be after end date
@@ -48,7 +189,9 @@ create table InvoicedLoan(
 	foreign key (loanerID)references Loaner,
 	foreign key (borrowerID) references Borrower,
 	foreign key (loanerID, itemID) references LoanerItem,
-	primary key (invoiceID)
+	primary key (invoiceID),
+	check (startDate <= endDate),
+	check (loanerID != borrowerID)
 );
 
 --userID from 1 to 100 inclusive
