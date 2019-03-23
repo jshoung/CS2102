@@ -80,6 +80,10 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   res.send({ data: data })
 })
 
+// ******************* //
+//        Loans       //
+// ******************* //
+
 app.post('/users/loans', [body('userId').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
