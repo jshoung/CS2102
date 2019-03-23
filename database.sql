@@ -29,32 +29,21 @@ create table UserAccount(
 -- (reporter, getReported, reason) the primary key because we want the user to report someone else for a particular reason, only once.
 -- if the reporter's value is set to null, then we know that the reporter's account has been deleted.
 create table Report(
-	title varchar(1000),
-	reportDate date,
+	reportID integer,
+	title varchar(1000) not null,
+	reportDate date not null,
 	reason varchar(10000),
-	primary key (title, reportDate)
-);
-
-create table Writes(
-	userID integer,
-	title varchar(1000),
-	reportDate date,
-	primary key (userID, title, reportDate),
-	foreign key (userID) references UserAccount on delete cascade,
-	foreign key (title, reportDate) references Report on delete cascade
-);
-
-create table getReported(
-	userID integer,
-	title varchar(1000),
-	reportDate date,
-	primary key (userID, title, reportDate),
-	foreign key (userID) references UserAccount on delete cascade,
-	foreign key (title, reportDate) references Report on delete cascade
+	writer integer,
+	getReported integer,
+	primary key (reportID),
+	foreign key (writer) references UserAccount on delete cascade,
+	foreign key (getReported) references UserAccount on delete cascade,
+	check (writer != getReported)
 );
 
 create table InterestGroup(
 	groupName varchar(80),
+	groupDescription varchar(10000),
 	primary key (groupName)
 );
 
@@ -101,67 +90,60 @@ create table LoanerItem(
 );
 
 --we would like the ratings to be between 0 and 5
+--users are ony allowed to review an item if they have used that particular item before
 create table UserReviewItem(
 	userID integer,
 	itemID integer,
 	itemOwnerID integer,
-	reviewID integer unique not null,
+	reviewID integer,
 	reviewComment varchar(1000),
 	reviewDate date not null,
 	rating integer not null,
 	check (0 <= rating),
 	check (rating <= 5),
-	primary key (userID, itemID, reviewID),
+	check (userID != itemOwnerID),
+	primary key (reviewID),
 	foreign key (userID) references UserAccount on delete set null,
 	foreign key (itemOwnerID, itemID) references LoanerItem on delete cascade
 );
 
+--Upvotes
 --when either the userAccount that upvoted, or the review deleted, the upvote will be deleted.
 create table Upvote(
 	userIDUpvoter integer,
 	reviewID integer,
-	reviewUserID integer,
-	itemID integer,
-	primary key (userIDUpvoter, reviewID, reviewUserID, itemID),
+	primary key (userIDUpvoter,reviewID),
 	foreign key (userIDUpvoter) references UserAccount(userID) on delete cascade,
-	foreign key (reviewUserID, itemID, reviewID) references UserReviewItem(userID, itemID, reviewID) on delete cascade
+	foreign key (reviewID) references UserReviewItem(reviewID) on delete cascade
 );
 
 
--- perhaps the backend can update the highest bidder and the highest bid, after a bid as been made to a adverstisement entry
+-- perhaps a trigger can update the highest bidder and the highest bid, after a bid as been made to a adverstisement entry
 create table Advertisement(
 	advID integer,
 	highestBidder integer,
 	minimumPrice integer not null,
+	openingDate date not null,
 	closingDate date not null,
 	minimumIncrease integer not null,
 	highestBid integer,
-	tier integer,
-	check (minimumIncrease > 0),
-	primary key (advID)
-);
-
-
--- upon a promotion, the backend should update the tier of the advertisement.
--- an advertisement can be only promoted once
--- QUESTION if the advertisement can only be promoted once, is there really a need for the tier attribute?
-create table Promote(
-	userID integer,
+	advertiser integer,
 	itemID integer,
-	advID integer,
-	primary key (userID, itemID, advID),
-	foreign key (userID) references Loaner on delete cascade,
-	foreign key (userID, itemID) references LoanerItem on delete cascade,
-	foreign key (advID) references Advertisement on delete cascade
+	check (minimumIncrease > 0),
+	check (openingDate < closingDate),
+	primary key (advID),
+	foreign key (advertiser) references Loaner(userID) on delete cascade,
+	foreign key (advertiser, itemID) references LoanerItem(userID, itemID) on delete cascade
 );
 
+--can make a trigger to only allow bids on advertisements that haven't closed yet.
 create table Bid(
 	bidID integer,
 	price integer not null,
-	userID integer,
+	borrowerID integer,
 	advID integer,
 	primary key (bidID),
-	foreign key (userID) references Borrower on delete cascade,
+	foreign key (borrowerID) references Borrower on delete cascade,
 	foreign key (advID) references Advertisement on delete cascade
 );
 
@@ -206,6 +188,57 @@ INSERT INTO UserAccount (userID,name,address) VALUES (71,'Cody Sargent','P.O. Bo
 INSERT INTO UserAccount (userID,name,address) VALUES (81,'Alden Waters','101-9663 At St.'),(82,'Abdul Taylor','P.O. Box 779, 9490 In Rd.'),(83,'Palmer Pearson','Ap #626-1921 Proin Rd.'),(84,'Moses Brewer','1666 Neque Rd.'),(85,'Skyler Martin','Ap #844-724 Nec St.'),(86,'Owen Webster','P.O. Box 787, 6381 Montes, Rd.'),(87,'Madison Santiago','514-2360 Lacus. St.'),(88,'Hope Murphy','Ap #787-3644 Malesuada St.'),(89,'Forrest Banks','Ap #906-2448 Ante Avenue'),(90,'Quyn Logan','943-1102 Aliquam St.');
 INSERT INTO UserAccount (userID,name,address) VALUES (91,'William Lindsey','127-1859 Amet, Av.'),(92,'Dora Dickson','P.O. Box 169, 5019 Diam. Avenue'),(93,'Karly Mcbride','P.O. Box 946, 8730 Molestie Rd.'),(94,'Ishmael Avila','Ap #530-1790 Non Av.'),(95,'Julian May','P.O. Box 426, 2316 Mauris St.'),(96,'Mariam Beard','876-6920 Magna Rd.'),(97,'August English','P.O. Box 472, 3189 Cursus Ave'),(98,'Luke Manning','6895 Placerat, Rd.'),(99,'Rhonda Contreras','157-451 Aliquam Rd.'),(100,'Fatima Sandoval','585 Feugiat Ave');
 
+--10 reports are written, only the first 3 have descriptions.
+INSERT INTO Report (reportID,title,reportDate,reason,writer,getReported) values
+(1,'No manners','04-24-2018','This person never reply me with smiley face',1,2),
+(2,'Self-entitled','04-24-2018','This person thinks he deserves a smiley face',2,1),
+(3,'Pedophile','03-23-2019','This person is insinuating pedophilic actions and comments',1,7);
+INSERT INTO Report (reportID,title,reportDate,writer,getReported) VALUES
+(4,'Rude','01-15-2019',9,2),
+(5,'Bad vibes','02-22-2019',15,2),
+(6,'Salty person','03-15-2019',35,2),
+(7,'Rude','01-15-2019',19,2),
+(8,'Bad negotiator','02-14-2019',83,2),
+(9,'Not gentleman/gentlewoman','03-14-2019',74,2),
+(10,'No basic respect','03-29-2019',25,2);
+
+--5 groups are created, only the first 3 have descriptions.
+INSERT INTO InterestGroup (groupName, groupDescription) VALUES
+('Photography Club', 'For all things photos'),
+('Spiderman Fans', 'Live and Die by the web'),
+('Tech Geeks', 'Self-explanatory.  We like tech && are geeks');
+INSERT INTO InterestGroup (groupName) VALUES
+('Refined Music People'),
+('Clothes Club');
+
+
+--We  have userAccounts joining interestgroups
+INSERT INTO Joins (joinDate, userID, groupname) VALUES 
+('02-22-2018',1,'Photography Club'),
+('02-21-2018',2,'Photography Club'),
+('02-24-2018',3,'Photography Club'),
+('02-22-2018',4,'Photography Club'),
+('02-20-2018',1,'Clothes Club'),
+('02-27-2018',2,'Clothes Club'),
+('02-15-2018',3,'Refined Music People'),
+('02-17-2018',4,'Refined Music People'),
+('01-22-2018',5,'Spiderman Fans'),
+('01-21-2018',6,'Spiderman Fans'),
+('01-24-2018',7,'Spiderman Fans'),
+('01-22-2018',8,'Tech Geeks'),
+('01-20-2018',9,'Tech Geeks'),
+('01-27-2018',10,'Clothes Club'),
+('01-15-2018',11,'Refined Music People'),
+('01-17-2018',12,'Refined Music People');
+
+
+INSERT INTO organizedEvent (eventID,eventDate,venue,organizer) VALUES  
+(1,'01-17-2019','East Coast Park','Photography Club'),
+(2,'01-18-2019','Suntec City','Tech Geeks'),
+(3,'01-19-2019','Vivocity Movie Theatre','Spiderman Fans'),
+(4,'02-17-2019','Scape','Clothes Club'),
+(5,'07-17-2019','Esplanade','Refined Music People');
+
 --loanerID from 1 to 50 inclusive
 INSERT INTO Loaner (userID) VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10);
 INSERT INTO Loaner (userID) VALUES (11),(12),(13),(14),(15),(16),(17),(18),(19),(20);
@@ -222,17 +255,78 @@ INSERT INTO Borrower (userID) VALUES (81),(82),(83),(84),(85),(86),(87),(88),(89
 INSERT INTO Borrower (userID) VALUES (91),(92),(93),(94),(95),(96),(97),(98),(99),(100);
 
 --LoanerItem current set as each loaner has 1 item on loan.  ItemID ranges from 100 to 149 inclusive
-INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (100,'Fuji Camera', 5,1),(101,'iPad Pro',2,2),(102,'Toshiba Laptop',6,3),(103,'Sony Headphones',3,4),(104,'Canon Camera Lens',9,5),(105,'Black Tuxedo',4,6),(106,'Pink Shoes',2,7),(107,'Metal Watch',10,8),(108,'Vintage Music CD',1,9),(109,'Spiderman Movie',6,10);
+-- The first 10 items have an item description
+INSERT INTO LoanerItem (itemID,itemName,value,itemDescription,userID) VALUES 
+(100,'Fuji Camera', 5,'Hello All, renting out a immaculate condition Camera, lightly used without usage mark. Shutter click less the 3k. Comes with all standard accessories. Self collect only at Blk 421 Hougang Ave 10, low ballers stayout.',1),
+(101,'iPad Pro',2,'As good as new with no signs if usage, item in perfect condition, bought on 17th June 2017 Locally, finest tempered glass on since bought. Comes with warranty,  box and all standard accessories. Will throw in Apple original pencil, 3rd party book case.',2),
+(102,'Toshiba Laptop',6,'Very good condition, Well kept and still looks new, Condition 9/10, No Battery, Intel Core(TM) 2 Duo CPU T6600 @ 2.2 GHz, DDR2 SDRAM, HDD 500GB, Memory 2GB, Windows 7 Professional',3),
+(103,'Sony Headphones',3,'Hello renting a as good as new headphone , used less then 1 hr. Renting as seldom used. Comes with all standard accessories . Item is perfect conditioning with zero usage marks. Item is bought from Expansys on 24th Nov 2018. Price is firm and Low baller will be ignored.  First offer first serve . Thank you ',4),
+(104,'Canon Camera Lens',9,'Hello all renting a full working condition lens with no box,  receipt,  warranty.  Item physical condition is 8/10.  With only light users mark which is only visible on strong sunlight. ',5),
+(105,'Black Tuxedo',4,'Who doesnt love a black tuxedo',6),
+(106,'Pink Shoes',2,'Not only for pedophiles',7),
+(107,'Metal Watch',10,'To impress that girl and make her think that you are rich',8),
+(108,'Vintage Music CD',1,'Put this in your uni dorm to make visitors think that you are cultured',9),
+(109,'Spiderman Movie',6,'Shoot webs and fight crime with your favourite neighbourhood superhero',10);
 INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (110,'Fuji Camera',10,11),(111,'iPad Pro',9,12),(112,'Toshiba Laptop',10,13),(113,'Sony Headphones',9,14),(114,'Canon Camera Lens',6,15),(115,'Black Tuxedo',7,16),(116,'Pink Shoes',10,17),(117,'Metal Watch',1,18),(118,'Vintage Music CD',5,19),(119,'Spiderman Movie',7,20);
 INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (120,'Fuji Camera',1,21),(121,'iPad Pro',5,22),(122,'Toshiba Laptop',2,23),(123,'Sony Headphones',8,24),(124,'Canon Camera Lens',7,25),(125,'Black Tuxedo',7,26),(126,'Pink Shoes',4,27),(127,'Metal Watch',10,28),(128,'Vintage Music CD',7,29),(129,'Spiderman Movie',5,30);
 INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (130,'Fuji Camera',5,31),(131,'iPad Pro',7,32),(132,'Toshiba Laptop',2,33),(133,'Sony Headphones',8,34),(134,'Canon Camera Lens',9,35),(135,'Black Tuxedo',7,36),(136,'Pink Shoes',6,37),(137,'Metal Watch',5,38),(138,'Vintage Music CD',4,39),(139,'Spiderman Movie',6,40);
 INSERT INTO LoanerItem (itemID,itemName,value,userID) VALUES (140,'Fuji Camera',6,41),(141,'iPad Pro',6,42),(142,'Toshiba Laptop',7,43),(143,'Sony Headphones',9,44),(144,'Canon Camera Lens',6,45),(145,'Black Tuxedo',9,46),(146,'Pink Shoes',8,47),(147,'Metal Watch',6,48),(148,'Vintage Music CD',9,49),(149,'Spiderman Movie',2,50);
 
+
+--User review item
+INSERT INTO UserReviewItem (userID,itemID,itemOwnerID,reviewID,reviewComment,reviewDate,rating) VALUES  
+(1,110,11,1,'Enjoyable camera to use!  I really like it.','01-17-2019',5),
+(2,121,22,2,'This iPad was not working properly when I got it','01-12-2019',1),
+(1,120,21,3,'This is not as good as the other cameras I used','02-19-2019',2);
+
+INSERT INTO UserReviewItem (userID,itemID,itemOwnerID,reviewID,reviewDate,rating) VALUES  
+(3,110,11,4,'01-17-2019',2),
+(4,121,22,5,'01-12-2019',4),
+(5,120,21,6,'02-19-2019',1),
+(6,110,11,7,'01-17-2019',4),
+(7,121,22,8,'01-12-2019',1),
+(8,120,21,9,'02-19-2019',5),
+(9,110,11,10,'01-17-2019',1),
+(10,121,22,11,'01-12-2019',4),
+(11,120,21,12,'02-19-2019',3),
+(12,110,11,13,'01-17-2019',1),
+(13,121,22,14,'01-12-2019',2),
+(14,120,21,15,'02-19-2019',5);
+
+
+INSERT INTO Upvote (userIDUpvoter,reviewID) VALUES  
+(74,1),
+(51,2),
+(56,3),
+(61,4),
+(71,5),
+(86,6),
+(95,7),
+(10,8),
+(16,9),
+(41,10),
+(43,1),
+(94,1);
+
+INSERT INTO Advertisement (advID,highestBidder,highestBid,minimumPrice,openingDate,closingDate,minimumIncrease,advertiser,itemID) VALUES  
+(1,null,null,10,'03-01-2019','05-01-2019',2,11,110),
+(2,null,null,12,'01-04-2019','07-02-2019',2,22,121),
+(3,null,null,15,'04-02-2019','05-04-2019',2,44,143);
+
+INSERT INTO Bid (bidID,borrowerID,advID,price) VALUES  
+(10,64,1,10),
+(11,85,1,12),
+(12,76,1,15),
+(13,57,2,12);
+
+INSERT INTO Chooses (bidID,userID,advID) VALUES  
+(13,44,3);
+
+
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 invoicedLoans
---The loan start and end date are not very accurate (endDate can be after startDate), but i guess they will do for now.
-INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID) VALUES ('02-19-2019','10-16-2018',14,2,1,41,200,100),('12-14-2019','06-27-2019',15,6,2,42,201,101),('07-31-2019','11-19-2018',11,2,3,43,202,102),('05-31-2019','03-26-2019',12,5,4,44,203,103),('10-17-2018','09-30-2019',12,9,5,45,204,104),('01-14-2020','07-14-2018',17,5,6,46,205,105),('05-21-2019','03-26-2020',10,3,7,47,206,106),('10-14-2018','10-10-2018',19,3,8,48,207,107),('01-14-2019','08-26-2019',14,2,9,49,208,108),('05-05-2019','09-16-2018',14,7,10,50,209,109);
-INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID) VALUES ('04-24-2018','06-07-2019',13,4,11,51,210,110),('10-08-2018','12-15-2019',13,8,12,52,211,111),('11-01-2019','02-29-2020',19,2,13,53,212,112),('01-24-2019','06-16-2019',10,7,14,54,213,113),('07-30-2018','05-13-2018',19,3,15,55,214,114),('04-18-2019','05-14-2018',15,6,16,56,215,115),('09-19-2019','10-12-2018',19,5,17,57,216,116),('10-07-2019','01-05-2019',16,2,18,58,217,117),('06-09-2018','06-06-2019',13,8,19,59,218,118),('09-09-2019','10-13-2019',12,8,20,60,219,119);
-INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID) VALUES ('11-06-2018','11-11-2018',19,9,21,61,220,120),('03-10-2018','06-11-2018',19,5,22,62,221,121),('07-07-2018','08-02-2019',10,7,23,63,222,122),('09-09-2019','05-13-2019',16,10,24,64,223,123),('04-28-2018','07-22-2018',14,8,25,65,224,124),('09-04-2019','11-08-2018',11,9,26,66,225,125),('06-20-2019','07-22-2019',18,9,27,67,226,126),('04-12-2018','12-28-2018',13,7,28,68,227,127),('05-31-2018','05-12-2018',16,7,29,69,228,128),('05-20-2018','02-13-2019',15,5,30,70,229,129);
-INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID) VALUES ('02-09-2020','09-10-2018',10,3,31,71,230,130),('03-27-2019','07-10-2018',16,2,32,72,231,131),('10-29-2018','04-01-2018',10,9,33,73,232,132),('07-24-2019','07-28-2019',17,6,34,74,233,133),('09-24-2018','05-30-2018',10,3,35,75,234,134),('12-08-2019','02-18-2020',16,9,36,76,235,135),('01-18-2019','02-10-2020',16,5,37,77,236,136),('08-09-2018','07-25-2018',10,3,38,78,237,137),('07-24-2018','08-08-2019',10,8,39,79,238,138),('12-08-2019','01-05-2019',13,7,40,80,239,139);
+INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID) VALUES ('02-19-2018','10-16-2018',14,2,1,41,200,100),('02-14-2019','06-27-2019',15,6,2,42,201,101),('07-31-2018','11-19-2018',11,2,3,43,202,102),('05-31-2018','03-26-2019',12,5,4,44,203,103),('10-17-2018','09-30-2019',12,9,5,45,204,104),('01-14-2018','07-14-2018',17,5,6,46,205,105),('05-21-2019','03-26-2020',10,3,7,47,206,106),('10-04-2018','10-10-2018',19,3,8,48,207,107),('01-14-2019','08-26-2019',14,2,9,49,208,108),('05-05-2018','09-16-2018',14,7,10,50,209,109);
+INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID) VALUES ('04-24-2018','06-07-2019',13,4,11,51,210,110),('10-08-2018','12-15-2019',13,8,12,52,211,111),('11-01-2019','02-29-2020',19,2,13,53,212,112),('01-24-2019','06-16-2019',10,7,14,54,213,113),('07-30-2017','05-13-2018',19,3,15,55,214,114),('04-18-2018','05-14-2018',15,6,16,56,215,115),('09-19-2018','10-12-2018',19,5,17,57,216,116),('10-07-2018','01-05-2019',16,2,18,58,217,117),('06-09-2018','06-06-2019',13,8,19,59,218,118),('09-09-2019','10-13-2019',12,8,20,60,219,119);
+INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID) VALUES ('11-06-2018','11-11-2018',19,9,21,61,220,120),('03-10-2018','06-11-2018',19,5,22,62,221,121),('07-07-2018','08-02-2019',10,7,23,63,222,122),('09-09-2018','05-13-2019',16,10,24,64,223,123),('04-28-2018','07-22-2018',14,8,25,65,224,124),('09-04-2018','11-08-2018',11,9,26,66,225,125),('06-20-2018','07-22-2019',18,9,27,67,226,126),('04-12-2018','12-28-2018',13,7,28,68,227,127),('03-31-2018','05-12-2018',16,7,29,69,228,128),('05-20-2018','02-13-2019',15,5,30,70,229,129);
+INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID) VALUES ('02-09-2018','09-10-2018',10,3,31,71,230,130),('03-27-2018','07-10-2018',16,2,32,72,231,131),('10-29-2017','04-01-2018',10,9,33,73,232,132),('07-24-2019','07-28-2019',17,6,34,74,233,133),('09-24-2017','05-30-2018',10,3,35,75,234,134),('12-08-2019','02-18-2020',16,9,36,76,235,135),('01-18-2019','02-10-2020',16,5,37,77,236,136),('06-09-2018','07-25-2018',10,3,38,78,237,137),('07-24-2018','08-08-2019',10,8,39,79,238,138),('12-08-2019','01-05-2020',13,7,40,80,239,139);
 --date format is month, day, year
