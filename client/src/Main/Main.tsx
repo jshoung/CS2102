@@ -5,14 +5,13 @@ import { Nav, Dropdown, Col, Row, Card, CardGroup } from 'react-bootstrap'
 class Main extends Component {
   state = {
     data: { rows: [{ userid: 0, name: '', address: '' }] },
-    user: {name:'', userid: 0},
+    user: { name: '', userid: 0 },
     tab: '',
-    userItems: [{itemdescription:'', itemid: 0, itemname:'', value: 0}]
+    userItems: [{ itemdescription: '', itemid: 0, itemname: '', value: 0 }],
   }
 
   async componentDidMount() {
-    const payload = (await axios.post(`http://localhost:5000/users`)).data
-    console.log(payload)
+    const payload = (await axios.post(`/users`)).data
 
     this.setState({
       ...payload,
@@ -20,13 +19,14 @@ class Main extends Component {
   }
 
   changeUser = (name: string, userid: number) => {
-    axios.post(`http://localhost:5000/users/items`, {
-      userId: userid
-    }).then(items => {
-      console.log(items)
-      this.setState({userItems: items.data.data.rows})
-    })
-    this.setState({ user: {name, userid} })
+    axios
+      .post(`/users/items`, {
+        userId: userid,
+      })
+      .then((items) => {
+        this.setState({ userItems: items.data.data.rows })
+      })
+    this.setState({ user: { name, userid } })
   }
 
   changeTab = (tab: string) => {
@@ -35,12 +35,12 @@ class Main extends Component {
 
   render() {
     const { data, tab, user, userItems } = this.state
-    let content = null;
-    
+    let content = null
+
     switch (tab) {
       case 'Items':
         let innerContent: any[] = []
-        userItems.forEach(row => {
+        userItems.forEach((row) => {
           innerContent.push(
             <Card>
               <Card.Body>
@@ -49,25 +49,26 @@ class Main extends Component {
                 <Card.Text>{row.itemdescription}test description</Card.Text>
                 <Card.Footer>Item Id: {row.itemid}</Card.Footer>
               </Card.Body>
-            </Card>)
+            </Card>,
+          )
         })
         content = <CardGroup>{innerContent}</CardGroup>
-        break;
+        break
       case 'Loans':
-        content = <div>Loan name</div>;
-        break;
+        content = <div>Loan name</div>
+        break
       case 'Other Users':
-        content = <div>Other users</div>;
-        break;
+        content = <div>Other users</div>
+        break
       case 'Past Loans':
-        content = <div>Past Loan name</div>;
-        break;
+        content = <div>Past Loan name</div>
+        break
       default:
-        break;
+        break
     }
 
     let dropdownMenu: any[] = []
-    data.rows.forEach(row => {
+    data.rows.forEach((row) => {
       let name = row.name
       let userid = row.userid
       dropdownMenu.push(
@@ -86,34 +87,34 @@ class Main extends Component {
       //     </div>
       //   </div>
       // </div>
-      <div className='container'>
+      <div className="container">
         <Row>
-          <Col md='auto'>
+          <Col md="auto">
             <Dropdown>
-              <Dropdown.Toggle variant='primary' id='dropdown-basic'>
+              <Dropdown.Toggle variant="primary" id="dropdown-basic">
                 Select User
               </Dropdown.Toggle>
               <Dropdown.Menu>{dropdownMenu}</Dropdown.Menu>
             </Dropdown>
           </Col>
           <Col>
-            <h4 className='user'>{user.name}</h4>
+            <h4 className="user">{user.name}</h4>
           </Col>
         </Row>
-        <Nav variant='tabs' activeKey={tab}>
+        <Nav variant="tabs" activeKey={tab}>
           <Nav.Item>
-            <Nav.Link eventKey='Items' onSelect={() => this.changeTab('Items')}>
+            <Nav.Link eventKey="Items" onSelect={() => this.changeTab('Items')}>
               Items
             </Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link eventKey='Loans' onSelect={() => this.changeTab('Loans')}>
+            <Nav.Link eventKey="Loans" onSelect={() => this.changeTab('Loans')}>
               Loans
             </Nav.Link>
           </Nav.Item>
           <Nav.Item>
             <Nav.Link
-              eventKey='Other Users'
+              eventKey="Other Users"
               onSelect={() => this.changeTab('Other Users')}
             >
               Other Users
@@ -121,7 +122,7 @@ class Main extends Component {
           </Nav.Item>
           <Nav.Item>
             <Nav.Link
-              eventKey='Past Loans'
+              eventKey="Past Loans"
               onSelect={() => this.changeTab('Past Loans')}
             >
               Past Loans
