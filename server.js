@@ -9,6 +9,11 @@ const { Pool } = require('pg')
 const env = require('./env')
 const cors = require('cors')
 
+const { checkInvoicedLoanSchema } = require('./middleware')
+
+const app = express()
+const port = process.env.PORT || 5000
+
 const logRequestStart = (req, res, next) => {
   console.info(`${req.method} ${req.originalUrl}`)
 
@@ -22,6 +27,7 @@ const logRequestStart = (req, res, next) => {
   next()
 }
 
+// Connect to postgreSQL database
 const pool = new Pool({
   user: env.DBuser,
   host: 'localhost',
@@ -29,9 +35,6 @@ const pool = new Pool({
   password: env.DBpassword,
   port: 5432,
 })
-
-const app = express()
-const port = process.env.PORT || 5000
 
 app.use(compression())
 app.use(helmet())
@@ -80,16 +83,44 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   res.send({ data: data })
 })
 
-// ******************* //
-//        Loans       //
-// ******************* //
+// *************************** //
+//        Invoiced Loans       //
+// *************************** //
+
+app.post('/users/loans/create', checkInvoicedLoanSchema, async (req, res) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() })
+  }
+  const body = req.body
+  const client = await pool.connect()
+  let data
+  try {
+    data = await client.query(
+      `insert into InvoicedLoan values ($1, $2, $3, $4,$5, $6, $7, $8)`,
+      [
+        req.body.startDate,
+        req.body.endDate,
+        req.body.penalty,
+        req.body.loanFee,
+        req.body.loanerID,
+        req.body.borrowerID,
+        req.body.invoiceID,
+        req.body.itemID,
+      ],
+    )
+  } catch (error) {
+    return res.status(400).json({ errors: error })
+  }
+
+  res.send({ data: data })
+})
 
 app.post('/users/loans', [body('userId').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() })
   }
-
   const body = req.body
   const client = await pool.connect()
   let data = await client.query(
