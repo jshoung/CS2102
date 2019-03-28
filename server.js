@@ -6,7 +6,6 @@ const compression = require('compression')
 const morgan = require('morgan')
 const helmet = require('helmet')
 const { Pool } = require('pg')
-const env = require('./env')
 const cors = require('cors')
 
 const logRequestStart = (req, res, next) => {
@@ -22,13 +21,21 @@ const logRequestStart = (req, res, next) => {
   next()
 }
 
-const pool = new Pool({
-  user: env.DBuser,
-  host: 'localhost',
-  database: env.DBname,
-  password: env.DBpassword,
-  port: 5432,
-})
+let config = {
+  connectionString: process.env.DATABASE_URL,
+  ssl: true,
+}
+if (process.env.NODE_ENV !== 'production') {
+  const env = require('./env')
+  config = {
+    user: env.DBuser,
+    host: 'localhost',
+    database: env.DBname,
+    password: env.DBpassword,
+    port: 5432,
+  }
+}
+const pool = new Pool(config)
 
 const app = express()
 const port = process.env.PORT || 5000
@@ -46,11 +53,9 @@ app.use(cors())
    Might need to specify parameters in req if we want to do filtering
 */
 app.post('/users', async (req, res) => {
-  const client = await pool.connect()
-  let data
-  data = await client.query('select * from useraccount')
+  const data = await pool.query('select * from useraccount')
 
-  res.send({ data: data })
+  res.send({ data })
 })
 
 app.post('/users/items', [body('userId').isInt()], async (req, res) => {
@@ -58,25 +63,19 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() })
   }
-  const body = req.body
-  const client = await pool.connect()
-  const { rowCount } = await client.query(
+
+  const { rowCount } = await pool.query(
     'select userId from UserAccount where userId = $1',
     [req.body.userId],
   )
   if (!rowCount) {
     return res.status(404).json({ errors: 'User not found in the database' })
   }
-  let data = await client.query('select * from LoanerItem where userID = $1', [
+  let data = await pool.query('select * from LoanerItem where userID = $1', [
     req.body.userId,
   ])
 
-  res.send({ data: data })
-})
-
-app.post('/api/world', (req, res) => {
-  console.log(req.body)
-  res.send(`This is what you sent me: ${req.body.post}`)
+  res.send({ data })
 })
 
 app.get('*', (req, res) => {
