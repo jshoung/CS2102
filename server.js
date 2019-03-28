@@ -130,7 +130,7 @@ app.post('/users/loans/update', checkInvoicedLoanSchema, async (req, res) => {
     data = await client.query(
       `update InvoicedLoan set 
         startDate = $2, endDate = $3, penalty = $4, loanFee = $5, loanerID = $6, borrowerID = $7, itemID = $8
-          where req.body.invoiceID = $1`,
+          where invoiceID = $1`,
       [
         req.body.invoiceID,
         req.body.startDate,
