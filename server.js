@@ -159,6 +159,42 @@ app.post('/users/loans/update', checkInvoicedLoanSchema, async (req, res) => {
   res.send({ data: data })
 })
 
+app.post(
+  '/users/loans/delete',
+  [body('invoiceID').isInt()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    const client = await pool.connect()
+
+    // Check whether InvoicedLoan exists in database
+    const { rowCount } = await client.query(
+      'select invoiceID from InvoicedLoan where invoiceID = $1',
+      [req.body.invoiceID],
+    )
+    if (!rowCount) {
+      return res
+        .status(404)
+        .json({ errors: 'InvoicedLoan not found in the database' })
+    }
+
+    let data
+    try {
+      data = await client.query(
+        `delete from InvoicedLoan  
+          where invoiceID = $1`,
+        [req.body.invoiceID],
+      )
+    } catch (error) {
+      return res.status(400).json({ errors: error })
+    }
+
+    res.send({ data: data })
+  },
+)
+
 app.post('/users/loans', [body('userId').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
