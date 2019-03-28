@@ -8,6 +8,7 @@ const helmet = require('helmet')
 const { Pool } = require('pg')
 const env = require('./env')
 const cors = require('cors')
+const hash = require('object-hash')
 
 const { checkInvoicedLoanSchema } = require('./middleware')
 
@@ -97,15 +98,47 @@ app.post('/users/loans/create', checkInvoicedLoanSchema, async (req, res) => {
   let data
   try {
     data = await client.query(
-      `insert into InvoicedLoan values ($1, $2, $3, $4,$5, $6, $7, $8)`,
+      `insert into InvoicedLoan (invoiceID, startDate, endDate, penalty, loanFee, loanerID, borrowerID, itemID) 
+      values ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
+        req.body.invoiceID,
         req.body.startDate,
         req.body.endDate,
         req.body.penalty,
         req.body.loanFee,
         req.body.loanerID,
         req.body.borrowerID,
+        req.body.itemID,
+      ],
+    )
+  } catch (error) {
+    return res.status(400).json({ errors: error })
+  }
+
+  res.send({ data: data })
+})
+
+app.post('/users/loans/update', checkInvoicedLoanSchema, async (req, res) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() })
+  }
+  const body = req.body
+  const client = await pool.connect()
+  let data
+  try {
+    data = await client.query(
+      `update InvoicedLoan set 
+        startDate = $2, endDate = $3, penalty = $4, loanFee = $5, loanerID = $6, borrowerID = $7, itemID = $8
+          where req.body.invoiceID = $1`,
+      [
         req.body.invoiceID,
+        req.body.startDate,
+        req.body.endDate,
+        req.body.penalty,
+        req.body.loanFee,
+        req.body.loanerID,
+        req.body.borrowerID,
         req.body.itemID,
       ],
     )
