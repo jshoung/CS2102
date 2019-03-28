@@ -93,7 +93,6 @@ app.post('/users/loans/create', checkInvoicedLoanSchema, async (req, res) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() })
   }
-  const body = req.body
   const client = await pool.connect()
   let data
   try {
@@ -123,8 +122,19 @@ app.post('/users/loans/update', checkInvoicedLoanSchema, async (req, res) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() })
   }
-  const body = req.body
   const client = await pool.connect()
+
+  // Check whether InvoicedLoan exists in database
+  const { rowCount } = await client.query(
+    'select invoiceID from InvoicedLoan where invoiceID = $1',
+    [req.body.invoiceID],
+  )
+  if (!rowCount) {
+    return res
+      .status(404)
+      .json({ errors: 'InvoicedLoan not found in the database' })
+  }
+
   let data
   try {
     data = await client.query(
