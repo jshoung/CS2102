@@ -6,7 +6,6 @@ const compression = require('compression')
 const morgan = require('morgan')
 const helmet = require('helmet')
 const { Pool } = require('pg')
-const env = require('./env')
 const cors = require('cors')
 const hash = require('object-hash')
 
@@ -28,14 +27,21 @@ const logRequestStart = (req, res, next) => {
   next()
 }
 
-// Connect to postgreSQL database
-const pool = new Pool({
-  user: env.DBuser,
-  host: 'localhost',
-  database: env.DBname,
-  password: env.DBpassword,
-  port: 5432,
-})
+let config = {
+  connectionString: process.env.DATABASE_URL,
+  ssl: true,
+}
+if (process.env.NODE_ENV !== 'production') {
+  const env = require('./env')
+  config = {
+    user: env.DBuser,
+    host: 'localhost',
+    database: env.DBname,
+    password: env.DBpassword,
+    port: 5432,
+  }
+}
+const pool = new Pool(config)
 
 app.use(compression())
 app.use(helmet())
@@ -50,11 +56,9 @@ app.use(cors())
    Might need to specify parameters in req if we want to do filtering
 */
 app.post('/users', async (req, res) => {
-  const client = await pool.connect()
-  let data
-  data = await client.query('select userID,name,address from useraccount')
+  const data = await pool.query('select * from useraccount')
 
-  res.send({ data: data })
+  res.send({ data })
 })
 
 // ******************* //
@@ -66,22 +70,20 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() })
   }
-  const body = req.body
-  const client = await pool.connect()
 
   // Check whether user exists in database
-  const { rowCount } = await client.query(
+  const { rowCount } = await pool.query(
     'select userId from UserAccount where userId = $1',
     [req.body.userId],
   )
   if (!rowCount) {
     return res.status(404).json({ errors: 'User not found in the database' })
   }
-  let data = await client.query('select * from LoanerItem where userID = $1', [
+  let data = await pool.query('select * from LoanerItem where userID = $1', [
     req.body.userId,
   ])
 
-  res.send({ data: data })
+  res.send({ data })
 })
 
 // *************************** //
@@ -93,10 +95,10 @@ app.post('/users/loans/create', checkInvoicedLoanSchema, async (req, res) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() })
   }
-  const client = await pool.connect()
+
   let data
   try {
-    data = await client.query(
+    data = await pool.query(
       `insert into InvoicedLoan (invoiceID, startDate, endDate, penalty, loanFee, loanerID, borrowerID, itemID) 
       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
@@ -114,7 +116,7 @@ app.post('/users/loans/create', checkInvoicedLoanSchema, async (req, res) => {
     return res.status(400).json({ errors: error })
   }
 
-  res.send({ data: data })
+  res.send({ data })
 })
 
 app.post('/users/loans/update', checkInvoicedLoanSchema, async (req, res) => {
@@ -122,10 +124,9 @@ app.post('/users/loans/update', checkInvoicedLoanSchema, async (req, res) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() })
   }
-  const client = await pool.connect()
 
   // Check whether InvoicedLoan exists in database
-  const { rowCount } = await client.query(
+  const { rowCount } = await pool.query(
     'select invoiceID from InvoicedLoan where invoiceID = $1',
     [req.body.invoiceID],
   )
@@ -137,7 +138,7 @@ app.post('/users/loans/update', checkInvoicedLoanSchema, async (req, res) => {
 
   let data
   try {
-    data = await client.query(
+    data = await pool.query(
       `update InvoicedLoan set 
         startDate = $2, endDate = $3, penalty = $4, loanFee = $5, loanerID = $6, borrowerID = $7, itemID = $8
           where invoiceID = $1`,
@@ -156,7 +157,7 @@ app.post('/users/loans/update', checkInvoicedLoanSchema, async (req, res) => {
     return res.status(400).json({ errors: error })
   }
 
-  res.send({ data: data })
+  res.send({ data })
 })
 
 app.post(
@@ -167,10 +168,9 @@ app.post(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() })
     }
-    const client = await pool.connect()
 
     // Check whether InvoicedLoan exists in database
-    const { rowCount } = await client.query(
+    const { rowCount } = await pool.query(
       'select invoiceID from InvoicedLoan where invoiceID = $1',
       [req.body.invoiceID],
     )
@@ -182,7 +182,7 @@ app.post(
 
     let data
     try {
-      data = await client.query(
+      data = await pool.query(
         `delete from InvoicedLoan  
           where invoiceID = $1`,
         [req.body.invoiceID],
@@ -191,7 +191,7 @@ app.post(
       return res.status(400).json({ errors: error })
     }
 
-    res.send({ data: data })
+    res.send({ data })
   },
 )
 
@@ -201,15 +201,15 @@ app.post('/users/loans', [body('userId').isInt()], async (req, res) => {
     return res.status(400).json({ errors: errors.array() })
   }
   const body = req.body
-  const client = await pool.connect()
-  let data = await client.query(
+
+  let data = await pool.query(
     `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID
       from InvoicedLoan IL
         where IL.loanerID = $1 or IL.borrowerID = $1`,
     [req.body.userId],
   )
 
-  res.send({ data: data })
+  res.send({ data })
 })
 
 app.get('*', (req, res) => {
