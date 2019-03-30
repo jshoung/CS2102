@@ -9,6 +9,7 @@ import {
   Card,
   Container,
   CardDeck,
+  Form,
 } from 'react-bootstrap'
 
 import NavBar from '../NavBar/NavBar'
@@ -64,6 +65,39 @@ class Main extends Component {
     let content: any[] = []
 
     switch (selectedTab) {
+      case 'AddItem':
+        content.push(
+          <Form>
+            <Form.Group controlId="exampleForm.ControlInput1">
+              <Form.Label>Email address</Form.Label>
+              <Form.Control type="email" placeholder="name@example.com" />
+            </Form.Group>
+            <Form.Group controlId="exampleForm.ControlSelect1">
+              <Form.Label>Example select</Form.Label>
+              <Form.Control as="select">
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+              </Form.Control>
+            </Form.Group>
+            <Form.Group controlId="exampleForm.ControlSelect2">
+              <Form.Label>Example multiple select</Form.Label>
+              <Form.Control as="select" multiple>
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+              </Form.Control>
+            </Form.Group>
+            <Form.Group controlId="exampleForm.ControlTextarea1">
+              <Form.Label>Example textarea</Form.Label>
+              <Form.Control as="textarea" rows="3" />
+            </Form.Group>
+          </Form>,
+        )
       case 'Items':
         userItems.forEach((row) => {
           content.push(
@@ -109,7 +143,7 @@ class Main extends Component {
             style={{ width: '18rem' }}
           >
             <Card.Body>
-              <Card.Title>Select a user to get started!</Card.Title>
+              <Card.Title>No data to display</Card.Title>
             </Card.Body>
           </Card>
         </CardDeck>,
@@ -140,10 +174,18 @@ class Main extends Component {
               >
                 <Nav.Item>
                   <Nav.Link
+                    eventKey="AddItem"
+                    onSelect={() => this.changeTab('AddItem')}
+                  >
+                    Add Item
+                  </Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link
                     eventKey="Items"
                     onSelect={() => this.changeTab('Items')}
                   >
-                    Items
+                    Your Items
                   </Nav.Link>
                 </Nav.Item>
                 <Nav.Item>
