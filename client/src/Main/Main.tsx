@@ -64,8 +64,6 @@ class Main extends Component {
     switch (selectedTab) {
       case 'Items':
         userItems.forEach((row) => {
-          console.log(row)
-
           content.push(
             <Card>
               <Card.Body>
