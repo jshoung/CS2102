@@ -9,10 +9,11 @@ import {
   Card,
   Container,
   CardDeck,
-  Form,
+  Spinner,
 } from 'react-bootstrap'
 
-import NavBar from '../NavBar/NavBar'
+import AddItem from '../Components/AddItem'
+import NavBar from '../Components/NavBar'
 
 class Main extends Component {
   state = {
@@ -22,10 +23,11 @@ class Main extends Component {
     selectedTab: '',
     userItems: [],
     content: [],
+    isLoading: false,
   }
 
   async componentDidMount() {
-    const payload = (await axios.post(`/users`)).data
+    const payload = (await axios.get(`/users`)).data
 
     this.setState(
       {
@@ -35,13 +37,14 @@ class Main extends Component {
     )
   }
 
-  changeUser = async (name: string, userId: number) => {
-    const items = await axios.post(`/users/items`, {
-      userId,
-    })
+  toggleLoading = (callback: () => void) => {
+    this.setState({ isLoading: !this.state.isLoading }, callback)
+  }
 
-    this.setState({ selectedUser: { name, userId } })
-    this.setState({ userItems: items.data.data.rows }, this.loadTabData)
+  changeUser = (name: string, userId: number) => {
+    this.setState({ selectedUser: { name, userId } }, async () => {
+      await this.loadTabData()
+    })
   }
 
   loadUsers = () => {
@@ -60,44 +63,19 @@ class Main extends Component {
     this.setState({ userList })
   }
 
-  loadTabData = () => {
-    const { userItems, selectedTab } = this.state
+  updateTab = () => {
+    const { userItems, selectedTab, selectedUser } = this.state
     let content: any[] = []
 
     switch (selectedTab) {
       case 'AddItem':
         content.push(
-          <Form>
-            <Form.Group controlId="exampleForm.ControlInput1">
-              <Form.Label>Email address</Form.Label>
-              <Form.Control type="email" placeholder="name@example.com" />
-            </Form.Group>
-            <Form.Group controlId="exampleForm.ControlSelect1">
-              <Form.Label>Example select</Form.Label>
-              <Form.Control as="select">
-                <option>1</option>
-                <option>2</option>
-                <option>3</option>
-                <option>4</option>
-                <option>5</option>
-              </Form.Control>
-            </Form.Group>
-            <Form.Group controlId="exampleForm.ControlSelect2">
-              <Form.Label>Example multiple select</Form.Label>
-              <Form.Control as="select" multiple>
-                <option>1</option>
-                <option>2</option>
-                <option>3</option>
-                <option>4</option>
-                <option>5</option>
-              </Form.Control>
-            </Form.Group>
-            <Form.Group controlId="exampleForm.ControlTextarea1">
-              <Form.Label>Example textarea</Form.Label>
-              <Form.Control as="textarea" rows="3" />
-            </Form.Group>
-          </Form>,
+          <AddItem
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+          />,
         )
+        break
       case 'Items':
         userItems.forEach((row) => {
           content.push(
@@ -153,72 +131,98 @@ class Main extends Component {
     this.setState({ content })
   }
 
+  loadTabData = async () => {
+    const { selectedUser } = this.state
+    const userId = _.get(selectedUser, 'userId')
+
+    const items = await axios.post(`/users/items`, {
+      userId,
+    })
+    this.setState({ userItems: items.data.data.rows }, () => {
+      this.updateTab()
+    })
+  }
+
   changeTab = (selectedTab: string) => {
     this.setState({ selectedTab }, this.loadTabData)
   }
 
   render() {
-    const { selectedTab, selectedUser, userList, content } = this.state
+    const {
+      selectedTab,
+      selectedUser,
+      userList,
+      content,
+      isLoading,
+    } = this.state
 
     return (
       <>
-        <NavBar selectedUser={selectedUser} userList={userList} />
-        <Container>
-          <Row>
-            <Col>
-              <Nav
-                className="justify-content-center"
-                variant="pills"
-                activeKey={selectedTab}
-                style={{ height: '50px' }}
-              >
-                <Nav.Item>
-                  <Nav.Link
-                    eventKey="AddItem"
-                    onSelect={() => this.changeTab('AddItem')}
+        {isLoading ? (
+          <div style={{ textAlign: 'center' }}>
+            <Spinner animation="border" role="status" />
+          </div>
+        ) : (
+          <>
+            <NavBar selectedUser={selectedUser} userList={userList} />
+            <Container>
+              <Row>
+                <Col>
+                  <Nav
+                    className="justify-content-center"
+                    variant="pills"
+                    activeKey={selectedTab}
+                    style={{ height: '50px' }}
                   >
-                    Add Item
-                  </Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Nav.Link
-                    eventKey="Items"
-                    onSelect={() => this.changeTab('Items')}
-                  >
-                    Your Items
-                  </Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Nav.Link
-                    eventKey="Loans"
-                    onSelect={() => this.changeTab('Loans')}
-                  >
-                    Loans
-                  </Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Nav.Link
-                    eventKey="Other Users"
-                    onSelect={() => this.changeTab('Other Users')}
-                  >
-                    Other Users
-                  </Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Nav.Link
-                    eventKey="Past Loans"
-                    onSelect={() => this.changeTab('Past Loans')}
-                  >
-                    Past Loans
-                  </Nav.Link>
-                </Nav.Item>
-              </Nav>
-            </Col>
-          </Row>
-          <Row style={{ paddingBottom: '20px' }}>
-            <Col>{content}</Col>
-          </Row>
-        </Container>
+                    <Nav.Item>
+                      <Nav.Link
+                        eventKey="AddItem"
+                        onSelect={() => this.changeTab('AddItem')}
+                      >
+                        Add Item
+                      </Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link
+                        eventKey="Items"
+                        onSelect={() => this.changeTab('Items')}
+                      >
+                        Your Items
+                      </Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link
+                        eventKey="Loans"
+                        onSelect={() => this.changeTab('Loans')}
+                      >
+                        Loans
+                      </Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link
+                        eventKey="Other Users"
+                        onSelect={() => this.changeTab('Other Users')}
+                      >
+                        Other Users
+                      </Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link
+                        eventKey="Past Loans"
+                        onSelect={() => this.changeTab('Past Loans')}
+                      >
+                        Past Loans
+                      </Nav.Link>
+                    </Nav.Item>
+                  </Nav>
+                </Col>
+              </Row>
+              <Row style={{ paddingBottom: '20px' }}>
+                <Col>{content}</Col>
+              </Row>
+            </Container>
+          </>
+        )}
       </>
     )
   }

@@ -52,7 +52,7 @@ app.use(cors())
 /* This endpoint gets all the users currently in the database
    Might need to specify parameters in req if we want to do filtering
 */
-app.post('/users', async (req, res) => {
+app.get('/users', async (req, res) => {
   const data = await pool.query('select * from useraccount')
 
   res.send({ data })
@@ -76,6 +76,14 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   ])
 
   res.send({ data })
+})
+
+app.post('/add-item', async (req, res) => {
+  await pool.query(
+    'insert into loaneritem (itemname, value, itemdescription, userid) values ($1, $2, $3, $4)',
+    [req.body.itemName, req.body.itemValue, req.body.itemDesc, req.body.userId],
+  )
+  res.send(200)
 })
 
 app.get('*', (req, res) => {
