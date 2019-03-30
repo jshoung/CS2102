@@ -37,8 +37,8 @@ class Main extends Component {
       userId,
     })
 
-    this.setState({ userItems: items.data.data.rows })
     this.setState({ selectedUser: { name, userId } })
+    this.setState({ userItems: items.data.data.rows }, this.loadTabData)
   }
 
   loadUsers = () => {
@@ -64,10 +64,12 @@ class Main extends Component {
     switch (selectedTab) {
       case 'Items':
         userItems.forEach((row) => {
+          console.log(row)
+
           content.push(
             <Card>
               <Card.Body>
-                <Card.Title>{_.get(row, 'data')}</Card.Title>
+                <Card.Title>{_.get(row, 'itemname')}</Card.Title>
                 <Card.Subtitle>Price: {_.get(row, 'value')}</Card.Subtitle>
                 <Card.Text>{_.get(row, 'itemdescription')}</Card.Text>
                 <Card.Footer>Item Id: {_.get(row, 'itemid')}</Card.Footer>
