@@ -7,9 +7,11 @@ import {
   Col,
   Row,
   Card,
-  CardGroup,
   Container,
+  CardDeck,
 } from 'react-bootstrap'
+
+import NavBar from '../NavBar/NavBar'
 
 class Main extends Component {
   state = {
@@ -65,14 +67,22 @@ class Main extends Component {
       case 'Items':
         userItems.forEach((row) => {
           content.push(
-            <Card>
-              <Card.Body>
-                <Card.Title>{_.get(row, 'itemname')}</Card.Title>
-                <Card.Subtitle>Price: {_.get(row, 'value')}</Card.Subtitle>
-                <Card.Text>{_.get(row, 'itemdescription')}</Card.Text>
+            <CardDeck style={{ paddingBottom: '10px' }}>
+              <Card
+                className="text-center"
+                bg="light"
+                border="dark"
+                style={{ width: '18rem' }}
+              >
+                <Card.Header>Header</Card.Header>
+                <Card.Body>
+                  <Card.Title>{_.get(row, 'itemname')}</Card.Title>
+                  <Card.Subtitle>Price: {_.get(row, 'value')}</Card.Subtitle>
+                  <Card.Text>{_.get(row, 'itemdescription')}</Card.Text>
+                </Card.Body>
                 <Card.Footer>Item Id: {_.get(row, 'itemid')}</Card.Footer>
-              </Card.Body>
-            </Card>,
+              </Card>
+            </CardDeck>,
           )
         })
         break
@@ -89,6 +99,23 @@ class Main extends Component {
         break
     }
 
+    if (content.length === 0) {
+      content.push(
+        <CardDeck style={{ paddingBottom: '10px' }}>
+          <Card
+            className="text-center"
+            bg="light"
+            border="dark"
+            style={{ width: '18rem' }}
+          >
+            <Card.Body>
+              <Card.Title>Select a user to get started!</Card.Title>
+            </Card.Body>
+          </Card>
+        </CardDeck>,
+      )
+    }
+
     this.setState({ content })
   }
 
@@ -100,67 +127,57 @@ class Main extends Component {
     const { selectedTab, selectedUser, userList, content } = this.state
 
     return (
-      <Container>
-        <Row>
-          <Col md={6}>
-            <Dropdown>
-              <Dropdown.Toggle
-                style={{ width: '500px', fontSize: '24px' }}
-                variant="primary"
-                id="dropdown-basic"
+      <>
+        <NavBar selectedUser={selectedUser} userList={userList} />
+        <Container>
+          <Row>
+            <Col>
+              <Nav
+                className="justify-content-center"
+                variant="pills"
+                activeKey={selectedTab}
+                style={{ height: '50px' }}
               >
-                {_.get(selectedUser, 'name') || 'Select User'}
-              </Dropdown.Toggle>
-              <Dropdown.Menu
-                style={{
-                  overflowY: 'scroll',
-                  width: '500px',
-                  maxHeight: '500px',
-                }}
-              >
-                {userList}
-              </Dropdown.Menu>
-            </Dropdown>
-          </Col>
-          <Col>
-            <Nav variant="tabs" activeKey={selectedTab}>
-              <Nav.Item>
-                <Nav.Link
-                  eventKey="Items"
-                  onSelect={() => this.changeTab('Items')}
-                >
-                  Items
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link
-                  eventKey="Loans"
-                  onSelect={() => this.changeTab('Loans')}
-                >
-                  Loans
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link
-                  eventKey="Other Users"
-                  onSelect={() => this.changeTab('Other Users')}
-                >
-                  Other Users
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link
-                  eventKey="Past Loans"
-                  onSelect={() => this.changeTab('Past Loans')}
-                >
-                  Past Loans
-                </Nav.Link>
-              </Nav.Item>
-            </Nav>
-            <CardGroup>{content}</CardGroup>
-          </Col>
-        </Row>
-      </Container>
+                <Nav.Item>
+                  <Nav.Link
+                    eventKey="Items"
+                    onSelect={() => this.changeTab('Items')}
+                  >
+                    Items
+                  </Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link
+                    eventKey="Loans"
+                    onSelect={() => this.changeTab('Loans')}
+                  >
+                    Loans
+                  </Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link
+                    eventKey="Other Users"
+                    onSelect={() => this.changeTab('Other Users')}
+                  >
+                    Other Users
+                  </Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link
+                    eventKey="Past Loans"
+                    onSelect={() => this.changeTab('Past Loans')}
+                  >
+                    Past Loans
+                  </Nav.Link>
+                </Nav.Item>
+              </Nav>
+            </Col>
+          </Row>
+          <Row style={{ paddingBottom: '20px' }}>
+            <Col>{content}</Col>
+          </Row>
+        </Container>
+      </>
     )
   }
 }
