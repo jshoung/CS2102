@@ -62,11 +62,13 @@ create table InterestGroup
 (
 	groupName varchar(80),
 	groupDescription varchar(8000),
+
 	primary key (groupName)
 );
 
 -- (userID, groupName) is the primary key because each user can only join each group once.  
 -- if either the user or the group is deleted, the 'Join' entry is deleted.
+
 create table Joins
 (
 	joinDate date not null,
@@ -78,6 +80,7 @@ create table Joins
 );
 
 -- if the interest group is deleted, then the entries into organizedEvent is also deleted.
+
 create table OrganizedEvent
 (
 	eventID serial,
@@ -127,6 +130,7 @@ create table UserReviewItem
 	primary key (reviewID),
 	foreign key (userID) references UserAccount (userID) on delete set null,
 	foreign key (itemOwnerID, itemID) references LoanerItem (userID, itemID) on delete cascade
+
 );
 
 --Upvotes
@@ -201,6 +205,7 @@ create table InvoicedLoan
 
 create or replace function checkReportYourself
 ()
+
 returns trigger as
 $$
 begin
@@ -211,6 +216,7 @@ else
 return new;
 end
 if;
+
 end
 $$
 language plpgsql;
@@ -225,6 +231,7 @@ execute procedure checkReportYourself
 
 create or replace function checkMinimumIncrease
 ()
+
 returns trigger as 
 $$
 declare adMinimumIncrease integer;
@@ -309,6 +316,7 @@ begin
 	return new;
 end
 if;
+
 end
 $$
 language plpgsql;
@@ -329,6 +337,7 @@ declare creatorID integer;
 begin
 	select advertiser
 	into creatorID
+
 	from Advertisement
 	where advID = new.advID;
 
@@ -347,6 +356,7 @@ else
 return new;
 end
 if;
+
 end
 $$
 language plpgsql;
@@ -452,11 +462,13 @@ else
 return new;
 end
 if;
+
 end
 $$
 language plpgsql;
 
 create trigger trig1CheckInvoicedLoanClash
+
 before
 update or insert on InvoicedLoan
 for each row
@@ -476,6 +488,7 @@ else
 return new;
 end
 if;
+
 end
 $$
 language plpgsql;
@@ -500,11 +513,13 @@ else
 return new;
 end
 if;
+
 end
 $$
 language plpgsql;
 
 create trigger trig2CheckStartAndEndDateOfLoan
+
 before
 update or insert on InvoicedLoan 
 for each row
@@ -524,11 +539,13 @@ else
 return new;
 end
 if;
+
 end
 $$
 language plpgsql;
 
 create trigger trig1CheckStartAndEndDateOfAdvertisement
+
 before
 update or insert on Advertisement 
 for each row
@@ -538,16 +555,19 @@ execute procedure checkOpeningDateEqualsOrAfterClosingDate
 
 create  or replace function checkMinimumIncreaseIsGreaterThanZero
 ()
+
 returns trigger as 
 $$
 begin
 	if (new.minimumIncrease <= 0) then 
 		raise notice 'Minimum Increase of the bid in an advertisement should be greater than zero';
+
 return null;
 else
 return new;
 end
 if;
+
 end
 $$
 language plpgsql;
@@ -558,6 +578,7 @@ update or insert on Advertisement
 for each row
 execute procedure checkMinimumIncreaseIsGreaterThanZero
 ();
+
 
 
 
@@ -731,6 +752,57 @@ VALUES
 	('01-19-2019', 'Vivocity Movie Theatre', 'Spiderman Fans'),
 	('02-17-2019', 'Scape', 'Clothes Club'),
 	('07-17-2019', 'Esplanade', 'Refined Music People');
+
+--10 reports are written, only the first 3 have descriptions.
+INSERT INTO Report (reportID,title,reportDate,reason,reporter,reportee) values
+(1,'No manners','04-24-2018','This person never reply me with smiley face',1,2),
+(2,'Self-entitled','04-24-2018','This person thinks he deserves a smiley face',2,1),
+(3,'Pedophile','03-23-2019','This person is insinuating pedophilic actions and comments',1,7);
+INSERT INTO Report (reportID,title,reportDate,reporter,reportee) VALUES
+(4,'Rude','01-15-2019',9,2),
+(5,'Bad vibes','02-22-2019',15,2),
+(6,'Salty person','03-15-2019',35,2),
+(7,'Rude','01-15-2019',19,2),
+(8,'Bad negotiator','02-14-2019',83,2),
+(9,'Not gentleman/gentlewoman','03-14-2019',74,2),
+(10,'No basic respect','03-29-2019',25,2);
+
+--5 groups are created, only the first 3 have descriptions.
+INSERT INTO InterestGroup (groupName, groupDescription) VALUES
+('Photography Club', 'For all things photos'),
+('Spiderman Fans', 'Live and Die by the web'),
+('Tech Geeks', 'Self-explanatory.  We like tech && are geeks');
+INSERT INTO InterestGroup (groupName) VALUES
+('Refined Music People'),
+('Clothes Club');
+
+
+--We  have userAccounts joining interestgroups
+INSERT INTO Joins (joinDate, userID, groupname) VALUES 
+('02-22-2018',1,'Photography Club'),
+('02-21-2018',2,'Photography Club'),
+('02-24-2018',3,'Photography Club'),
+('02-22-2018',4,'Photography Club'),
+('02-20-2018',1,'Clothes Club'),
+('02-27-2018',2,'Clothes Club'),
+('02-15-2018',3,'Refined Music People'),
+('02-17-2018',4,'Refined Music People'),
+('01-22-2018',5,'Spiderman Fans'),
+('01-21-2018',6,'Spiderman Fans'),
+('01-24-2018',7,'Spiderman Fans'),
+('01-22-2018',8,'Tech Geeks'),
+('01-20-2018',9,'Tech Geeks'),
+('01-27-2018',10,'Clothes Club'),
+('01-15-2018',11,'Refined Music People'),
+('01-17-2018',12,'Refined Music People');
+
+
+INSERT INTO OrganizedEvent (eventID,eventDate,venue,organizer) VALUES  
+(1,'01-17-2019','East Coast Park','Photography Club'),
+(2,'01-18-2019','Suntec City','Tech Geeks'),
+(3,'01-19-2019','Vivocity Movie Theatre','Spiderman Fans'),
+(4,'02-17-2019','Scape','Clothes Club'),
+(5,'07-17-2019','Esplanade','Refined Music People');
 
 --loanerID from 1 to 50 inclusive
 INSERT INTO Loaner
@@ -933,6 +1005,7 @@ INSERT INTO Chooses
 	(bidID,userID,advID)
 VALUES
 	(13, 22, 2);
+
 
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
