@@ -1,136 +1,166 @@
 import React, { Component } from 'react'
+import * as _ from 'lodash'
 import axios from 'axios'
-import { Nav, Dropdown, Col, Row, Card, CardGroup } from 'react-bootstrap'
+import {
+  Nav,
+  Dropdown,
+  Col,
+  Row,
+  Card,
+  CardGroup,
+  Container,
+} from 'react-bootstrap'
 
 class Main extends Component {
   state = {
-    data: { rows: [{ userid: 0, name: '', address: '' }] },
-    user: { name: '', userid: 0 },
-    tab: '',
-    userItems: [{ itemdescription: '', itemid: 0, itemname: '', value: 0 }],
+    data: {},
+    userList: [],
+    selectedUser: {},
+    selectedTab: '',
+    userItems: [],
+    content: [],
   }
 
   async componentDidMount() {
     const payload = (await axios.post(`/users`)).data
 
-    this.setState({
-      ...payload,
+    this.setState(
+      {
+        ...payload,
+      },
+      () => this.loadUsers(),
+    )
+  }
+
+  changeUser = async (name: string, userId: number) => {
+    const items = await axios.post(`/users/items`, {
+      userId,
     })
+
+    this.setState({ userItems: items.data.data.rows })
+    this.setState({ selectedUser: { name, userId } })
   }
 
-  changeUser = (name: string, userid: number) => {
-    axios
-      .post(`/users/items`, {
-        userId: userid,
-      })
-      .then((items) => {
-        this.setState({ userItems: items.data.data.rows })
-      })
-    this.setState({ user: { name, userid } })
-  }
+  loadUsers = () => {
+    const { data } = this.state
 
-  changeTab = (tab: string) => {
-    this.setState({ tab })
-  }
-
-  render() {
-    const { data, tab, user, userItems } = this.state
-    let content = null
-
-    switch (tab) {
-      case 'Items':
-        let innerContent: any[] = []
-        userItems.forEach((row) => {
-          innerContent.push(
-            <Card>
-              <Card.Body>
-                <Card.Title>{row.itemname}</Card.Title>
-                <Card.Subtitle>Price: {row.value}</Card.Subtitle>
-                <Card.Text>{row.itemdescription}test description</Card.Text>
-                <Card.Footer>Item Id: {row.itemid}</Card.Footer>
-              </Card.Body>
-            </Card>,
-          )
-        })
-        content = <CardGroup>{innerContent}</CardGroup>
-        break
-      case 'Loans':
-        content = <div>Loan name</div>
-        break
-      case 'Other Users':
-        content = <div>Other users</div>
-        break
-      case 'Past Loans':
-        content = <div>Past Loan name</div>
-        break
-      default:
-        break
-    }
-
-    let dropdownMenu: any[] = []
-    data.rows.forEach((row) => {
+    let userList: any[] = []
+    _.get(data, 'rows').forEach((row: any) => {
       let name = row.name
       let userid = row.userid
-      dropdownMenu.push(
+      userList.push(
         <Dropdown.Item onSelect={() => this.changeUser(name, userid)}>
           {name}
         </Dropdown.Item>,
       )
     })
+    this.setState({ userList })
+  }
+
+  loadTabData = () => {
+    const { userItems, selectedTab } = this.state
+    let content: any[] = []
+
+    switch (selectedTab) {
+      case 'Items':
+        userItems.forEach((row) => {
+          content.push(
+            <Card>
+              <Card.Body>
+                <Card.Title>{_.get(row, 'data')}</Card.Title>
+                <Card.Subtitle>Price: {_.get(row, 'value')}</Card.Subtitle>
+                <Card.Text>{_.get(row, 'itemdescription')}</Card.Text>
+                <Card.Footer>Item Id: {_.get(row, 'itemid')}</Card.Footer>
+              </Card.Body>
+            </Card>,
+          )
+        })
+        break
+      case 'Loans':
+        // content = <div>Loan name</div>
+        break
+      case 'Other Users':
+        // content = <div>Other users</div>
+        break
+      case 'Past Loans':
+        // content = <div>Past Loan name</div>
+        break
+      default:
+        break
+    }
+
+    this.setState({ content })
+  }
+
+  changeTab = (selectedTab: string) => {
+    this.setState({ selectedTab }, this.loadTabData)
+  }
+
+  render() {
+    const { selectedTab, selectedUser, userList, content } = this.state
 
     return (
-      // <div className='container'>
-      //   <div className='row'>
-      //     <div className='jumbotron col-12 text-center'>
-      //       <h1 className='display-3'>{data.title}</h1>
-      //       <p className='lead'>{data.description}</p>
-      //     </div>
-      //   </div>
-      // </div>
-      <div className="container">
+      <Container>
         <Row>
-          <Col md="auto">
+          <Col md={6}>
             <Dropdown>
-              <Dropdown.Toggle variant="primary" id="dropdown-basic">
-                Select User
+              <Dropdown.Toggle
+                style={{ width: '500px', fontSize: '24px' }}
+                variant="primary"
+                id="dropdown-basic"
+              >
+                {_.get(selectedUser, 'name') || 'Select User'}
               </Dropdown.Toggle>
-              <Dropdown.Menu>{dropdownMenu}</Dropdown.Menu>
+              <Dropdown.Menu
+                style={{
+                  overflowY: 'scroll',
+                  width: '500px',
+                  maxHeight: '500px',
+                }}
+              >
+                {userList}
+              </Dropdown.Menu>
             </Dropdown>
           </Col>
           <Col>
-            <h4 className="user">{user.name}</h4>
+            <Nav variant="tabs" activeKey={selectedTab}>
+              <Nav.Item>
+                <Nav.Link
+                  eventKey="Items"
+                  onSelect={() => this.changeTab('Items')}
+                >
+                  Items
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  eventKey="Loans"
+                  onSelect={() => this.changeTab('Loans')}
+                >
+                  Loans
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  eventKey="Other Users"
+                  onSelect={() => this.changeTab('Other Users')}
+                >
+                  Other Users
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  eventKey="Past Loans"
+                  onSelect={() => this.changeTab('Past Loans')}
+                >
+                  Past Loans
+                </Nav.Link>
+              </Nav.Item>
+            </Nav>
+            <CardGroup>{content}</CardGroup>
           </Col>
         </Row>
-        <Nav variant="tabs" activeKey={tab}>
-          <Nav.Item>
-            <Nav.Link eventKey="Items" onSelect={() => this.changeTab('Items')}>
-              Items
-            </Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link eventKey="Loans" onSelect={() => this.changeTab('Loans')}>
-              Loans
-            </Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link
-              eventKey="Other Users"
-              onSelect={() => this.changeTab('Other Users')}
-            >
-              Other Users
-            </Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link
-              eventKey="Past Loans"
-              onSelect={() => this.changeTab('Past Loans')}
-            >
-              Past Loans
-            </Nav.Link>
-          </Nav.Item>
-        </Nav>
-        {content}
-      </div>
+      </Container>
     )
   }
 }
