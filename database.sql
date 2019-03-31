@@ -62,7 +62,6 @@ create table InterestGroup
 (
 	groupName varchar(80),
 	groupDescription varchar(8000),
-
 	primary key (groupName)
 );
 
@@ -203,21 +202,17 @@ create table InvoicedLoan
 );
 
 
-create or replace function checkReportYourself
-()
-
+create or replace function checkReportYourself()
 returns trigger as
 $$
-begin
-	if (new.reporter = new.reportee) then
-		raise notice 'You cannot report yourself';
-return null;
-else
-return new;
-end
-if;
-
-end
+	begin
+		if (new.reporter = new.reportee) then
+			raise exception 'You cannot report yourself';
+	return null;
+	else
+	return new;
+	end if;
+	end
 $$
 language plpgsql;
 
@@ -225,47 +220,43 @@ create trigger trig1CheckSelfReport
 before
 update or insert on Report
 for each row
-execute procedure checkReportYourself
-();
+execute procedure checkReportYourself();
 
 
-create or replace function checkMinimumIncrease
-()
-
+create or replace function checkMinimumIncrease()
 returns trigger as 
 $$
-declare adMinimumIncrease integer;
-		previousHighestBid integer;
-		adMinimumPrice integer;
-begin
-	select highestBid
-	into previousHighestBid
-	from Advertisement
-	where advID = new.advID;
-
-	select minimumIncrease
-	into adMinimumIncrease
-	from Advertisement
-	where advID = new.advID;
-
-	select minimumPrice
-	into adMinimumPrice
-	from Advertisement
-	where advID = new.advID;
-
-	if (previousHighestBid is null and new.price < adMinimumPrice) then 
-		raise notice 'You have to at least bid the minimum price';
-	return null;
-	elsif
-	(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
-		raise notice 'You have to at least bid the highest bid price, plus the minimum increase';
-	return null;
-	else
-	return new;
-
-end
-if;
-end
+	declare adMinimumIncrease integer;
+			previousHighestBid integer;
+			adMinimumPrice integer;
+	begin
+		select highestBid
+		into previousHighestBid
+		from Advertisement
+		where advID = new.advID;
+	
+		select minimumIncrease
+		into adMinimumIncrease
+		from Advertisement
+		where advID = new.advID;
+	
+		select minimumPrice
+		into adMinimumPrice
+		from Advertisement
+		where advID = new.advID;
+	
+		if (previousHighestBid is null and new.price < adMinimumPrice) then 
+			raise exception 'You have to at least bid the minimum price';
+		return null;
+		elsif
+		(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
+			raise exception 'You have to at least bid the highest bid price, plus the minimum increase';
+		return null;
+		else
+		return new;
+	
+	end if;
+	end
 $$
 language plpgsql;
 
@@ -273,21 +264,19 @@ create trigger trig1MinimumBidIncreaseTrig
 before
 update or insert on Bid
 for each row
-execute procedure checkMinimumIncrease
-();
+execute procedure checkMinimumIncrease();
 
 
-create or replace function updateHighestBidder
-()
+create or replace function updateHighestBidder()
 returns trigger as
 $$
-begin
-	update Advertisement
-	set highestBid = new.price,
-		highestBidder = new.borrowerID
-	where advID = new.advID;
-	return new;
-end
+	begin
+		update Advertisement
+		set highestBid = new.price,
+			highestBidder = new.borrowerID
+		where advID = new.advID;
+		return new;
+	end
 $$
 language plpgsql;
 
@@ -295,29 +284,26 @@ create trigger trig2UpdateHighestBidderTrig
 before
 update or insert on Bid
 for each row
-execute procedure updateHighestBidder
-();
+execute procedure updateHighestBidder();
 
 
-create or replace function checkUnableToBidForYourOwnAdvertisement
-()
+create or replace function checkUnableToBidForYourOwnAdvertisement()
 returns trigger as 
 $$
-declare originalAdvertiser integer;
-begin
-	select advertiser
-	into originalAdvertiser
-	from Advertisement
-	where advID = new.advID;
-	if (new.borrowerID = originalAdvertiser) then 
-		raise notice 'You cannot bid for your own advertisements';
-	return null;
-	else
-	return new;
-end
-if;
-
-end
+	declare originalAdvertiser integer;
+	begin
+		select advertiser
+		into originalAdvertiser
+		from Advertisement
+		where advID = new.advID;
+		if (new.borrowerID = originalAdvertiser) then 
+			raise exception 'You cannot bid for your own advertisements';
+		return null;
+		else
+		return new;
+	end if;
+	
+	end
 $$
 language plpgsql;
 
@@ -325,39 +311,36 @@ create trigger trig3CheckUnableToBidForYourOwnAdvertisement
 before
 update or insert on Bid
 for each row
-execute procedure checkUnableToBidForYourOwnAdvertisement
-();
+execute procedure checkUnableToBidForYourOwnAdvertisement();
 
 
-create or replace function checkChoosesYourOwnAdvertisementAndCorrectBid
-()
+create or replace function checkChoosesYourOwnAdvertisementAndCorrectBid()
 returns trigger as 
 $$
-declare creatorID integer;
-begin
-	select advertiser
-	into creatorID
-
-	from Advertisement
-	where advID = new.advID;
-
-	if (new.userID != creatorID) then 
-		raise notice 'creator ID is %', creatorID;
-raise notice 'You can only choose bids that you created the advertisements for';
-return null;
-elsif new.bidID not in
-(select bidID
-from Bid
-where advID = new.advID)
-then 
-		raise notice 'You can only choose the bids for your own advertisement';
-return null;
-else
-return new;
-end
-if;
-
-end
+	declare creatorID integer;
+	begin
+		select advertiser
+		into creatorID
+	
+		from Advertisement
+		where advID = new.advID;
+	
+		if (new.userID != creatorID) then 
+			raise exception 'creator ID is %', creatorID;
+	raise exception 'You can only choose bids that you created the advertisements for';
+	return null;
+	elsif new.bidID not in
+	(select bidID
+	from Bid
+	where advID = new.advID)
+	then 
+			raise exception 'You can only choose the bids for your own advertisement';
+	return null;
+	else
+	return new;
+	end if;
+	
+	end
 $$
 language plpgsql;
 
@@ -365,8 +348,7 @@ create trigger trig1CheckChoosesYourOwnAdvertisementAndCorrectBid
 before
 update or insert on Chooses
 for each row
-execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid
-();
+execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid();
 
 
 --------------------------------------------------------------------------------------
@@ -391,7 +373,7 @@ execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid
 -- 	where new.userID = borrowerID and new.itemOwnerID = loanerID and new.itemID = itemID;
 
 -- 	if (earliestLoanDate is null or earliestLoanDate > new.reviewDate) then 
--- 		raise notice 'You have to use the item first before reviewing it';
+-- 		raise exception 'You have to use the item first before reviewing it';
 -- 	return null;
 -- 	else
 -- 	return new;
@@ -415,7 +397,7 @@ execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid
 -- $$
 -- begin
 -- 	if (new.rating < 0 or new.rating > 5) then 
--- 		raise notice 'ratings have to be between 0 and 5';
+-- 		raise exception 'ratings have to be between 0 and 5';
 -- return null;
 -- else
 -- return new;
@@ -440,54 +422,48 @@ execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid
 --------------------------------------------------------------------------------------
 
 
-create or replace function checkLoanDateClash
-()
+create or replace function checkLoanDateClash()
 returns trigger as
 $$
-declare
-begin
-	if (select max(invoiceID)
+	declare
+	begin
+		if (select max(invoiceID)
+		from InvoicedLoan
+		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
+			raise exception  'You cannot begin a loan when that item is on loan during that time';
+	return null;
+	elsif
+	(select max(invoiceID)
 	from InvoicedLoan
-	where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
-		raise notice  'You cannot begin a loan when that item is on loan during that time';
-return null;
-elsif
-(select max(invoiceID)
-from InvoicedLoan
-where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID)
-is not null then 
-		raise notice 'You cannot have an item on loan when that item is on loan to someone else during that time';
-return null;
-else
-return new;
-end
-if;
-
-end
+	where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID)
+	is not null then 
+			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time';
+	return null;
+	else
+	return new;
+	end if;
+	
+	end
 $$
 language plpgsql;
 
 create trigger trig1CheckInvoicedLoanClash
-
 before
 update or insert on InvoicedLoan
 for each row
-execute procedure checkLoanDateClash
-();
+execute procedure checkLoanDateClash();
 
 
-create or replace function checkLoanYourOwnItem
-()
+create or replace function checkLoanYourOwnItem()
 returns trigger as
 $$
-begin
-	if (new.loanerID = new.borrowerID) then 
-		raise notice 'You cannot make a loan on your own item';
-return null;
-else
-return new;
-end
-if;
+	begin
+		if (new.loanerID = new.borrowerID) then 
+			raise exception 'You cannot make a loan on your own item';
+	return null;
+	else
+	return new;
+	end if;
 
 end
 $$
@@ -497,78 +473,65 @@ create trigger trig1CheckLoanYourOwnItem
 before
 update or insert on InvoicedLoan 
 for each row
-execute procedure checkLoanYourOwnItem
-();
+execute procedure checkLoanYourOwnItem();
 
 
-create or replace function checkStartDateEqualsOrAfterEndDate
-()
+create or replace function checkStartDateEqualsOrAfterEndDate()
 returns trigger as
 $$
-begin
-	if (new.startDate > new.endDate) then 
-		raise notice 'Start date cannot be after the end date';
-return null;
-else
-return new;
-end
-if;
-
-end
+	begin
+		if (new.startDate > new.endDate) then 
+			raise exception 'Start date cannot be after the end date';
+	return null;
+	else
+	return new;
+	end if;
+	
+	end
 $$
 language plpgsql;
 
 create trigger trig2CheckStartAndEndDateOfLoan
-
 before
 update or insert on InvoicedLoan 
 for each row
-execute procedure checkStartDateEqualsOrAfterEndDate
-();
+execute procedure checkStartDateEqualsOrAfterEndDate();
 
 
-create or replace function checkOpeningDateEqualsOrAfterClosingDate
-()
+create or replace function checkOpeningDateEqualsOrAfterClosingDate()
 returns trigger as
 $$
-begin
-	if (new.openingDate > new.closingDate) then 
-		raise notice 'Opening date cannot be after the closing date';
-return null;
-else
-return new;
-end
-if;
-
-end
+	begin
+		if (new.openingDate > new.closingDate) then 
+			raise exception 'Opening date cannot be after the closing date';
+	return null;
+	else
+	return new;
+	end if;
+	
+	end
 $$
 language plpgsql;
 
 create trigger trig1CheckStartAndEndDateOfAdvertisement
-
 before
 update or insert on Advertisement 
 for each row
-execute procedure checkOpeningDateEqualsOrAfterClosingDate
-();
+execute procedure checkOpeningDateEqualsOrAfterClosingDate();
 
 
-create  or replace function checkMinimumIncreaseIsGreaterThanZero
-()
-
+create  or replace function checkMinimumIncreaseIsGreaterThanZero()
 returns trigger as 
 $$
-begin
-	if (new.minimumIncrease <= 0) then 
-		raise notice 'Minimum Increase of the bid in an advertisement should be greater than zero';
-
-return null;
-else
-return new;
-end
-if;
-
-end
+	begin
+		if (new.minimumIncrease <= 0) then 
+			raise exception 'Minimum Increase of the bid in an advertisement should be greater than zero';
+			return null;
+		else
+		return new;
+		end if;
+	
+	end
 $$
 language plpgsql;
 
@@ -576,8 +539,7 @@ create trigger trig2CheckMinimumIncreaseIsGreaterThanZero
 before
 update or insert on Advertisement
 for each row
-execute procedure checkMinimumIncreaseIsGreaterThanZero
-();
+execute procedure checkMinimumIncreaseIsGreaterThanZero();
 
 
 
@@ -708,6 +670,7 @@ VALUES
 	('Not gentleman/gentlewoman', '03-14-2019', 74, 2),
 	( 'No basic respect', '03-29-2019', 25, 2);
 
+
 --5 groups are created, only the first 3 have descriptions.
 INSERT INTO InterestGroup
 	(groupName, groupDescription)
@@ -753,56 +716,6 @@ VALUES
 	('02-17-2019', 'Scape', 'Clothes Club'),
 	('07-17-2019', 'Esplanade', 'Refined Music People');
 
---10 reports are written, only the first 3 have descriptions.
-INSERT INTO Report (reportID,title,reportDate,reason,reporter,reportee) values
-(1,'No manners','04-24-2018','This person never reply me with smiley face',1,2),
-(2,'Self-entitled','04-24-2018','This person thinks he deserves a smiley face',2,1),
-(3,'Pedophile','03-23-2019','This person is insinuating pedophilic actions and comments',1,7);
-INSERT INTO Report (reportID,title,reportDate,reporter,reportee) VALUES
-(4,'Rude','01-15-2019',9,2),
-(5,'Bad vibes','02-22-2019',15,2),
-(6,'Salty person','03-15-2019',35,2),
-(7,'Rude','01-15-2019',19,2),
-(8,'Bad negotiator','02-14-2019',83,2),
-(9,'Not gentleman/gentlewoman','03-14-2019',74,2),
-(10,'No basic respect','03-29-2019',25,2);
-
---5 groups are created, only the first 3 have descriptions.
-INSERT INTO InterestGroup (groupName, groupDescription) VALUES
-('Photography Club', 'For all things photos'),
-('Spiderman Fans', 'Live and Die by the web'),
-('Tech Geeks', 'Self-explanatory.  We like tech && are geeks');
-INSERT INTO InterestGroup (groupName) VALUES
-('Refined Music People'),
-('Clothes Club');
-
-
---We  have userAccounts joining interestgroups
-INSERT INTO Joins (joinDate, userID, groupname) VALUES 
-('02-22-2018',1,'Photography Club'),
-('02-21-2018',2,'Photography Club'),
-('02-24-2018',3,'Photography Club'),
-('02-22-2018',4,'Photography Club'),
-('02-20-2018',1,'Clothes Club'),
-('02-27-2018',2,'Clothes Club'),
-('02-15-2018',3,'Refined Music People'),
-('02-17-2018',4,'Refined Music People'),
-('01-22-2018',5,'Spiderman Fans'),
-('01-21-2018',6,'Spiderman Fans'),
-('01-24-2018',7,'Spiderman Fans'),
-('01-22-2018',8,'Tech Geeks'),
-('01-20-2018',9,'Tech Geeks'),
-('01-27-2018',10,'Clothes Club'),
-('01-15-2018',11,'Refined Music People'),
-('01-17-2018',12,'Refined Music People');
-
-
-INSERT INTO OrganizedEvent (eventID,eventDate,venue,organizer) VALUES  
-(1,'01-17-2019','East Coast Park','Photography Club'),
-(2,'01-18-2019','Suntec City','Tech Geeks'),
-(3,'01-19-2019','Vivocity Movie Theatre','Spiderman Fans'),
-(4,'02-17-2019','Scape','Clothes Club'),
-(5,'07-17-2019','Esplanade','Refined Music People');
 
 --loanerID from 1 to 50 inclusive
 INSERT INTO Loaner
@@ -986,6 +899,7 @@ VALUES
 	('Vintage Music CD', 900, 49),
 	('Spiderman Movie', 200, 50);
 
+
 INSERT INTO Advertisement
 	(highestBidder,highestBid,minimumPrice,openingDate,closingDate,minimumIncrease,advertiser,itemID)
 VALUES
@@ -1001,10 +915,11 @@ VALUES
 	(76, 1, 14),
 	(57, 2, 12);
 
+
 INSERT INTO Chooses
 	(bidID,userID,advID)
 VALUES
-	(13, 22, 2);
+	(4, 2, 2);
 
 
 
@@ -1081,3 +996,4 @@ VALUES
 --------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------
+
