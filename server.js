@@ -49,14 +49,21 @@ app.use(express.static(path.join(__dirname, 'client/build')))
 app.use(logRequestStart)
 app.use(cors())
 
-/* This endpoint gets all the users currently in the database
-   Might need to specify parameters in req if we want to do filtering
+/*
+
+ENDPOINTS
+
 */
+
+// Users
+
 app.get('/users', async (req, res) => {
   const data = await pool.query('select * from useraccount')
 
   res.send({ data })
 })
+
+// Items
 
 app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   const errors = validationResult(req)
@@ -83,7 +90,21 @@ app.post('/add-item', async (req, res) => {
     'insert into loaneritem (itemname, value, itemdescription, userid) values ($1, $2, $3, $4)',
     [req.body.itemName, req.body.itemValue, req.body.itemDesc, req.body.userId],
   )
-  res.send(200)
+  res.sendStatus(200)
+})
+
+app.patch('/add-item', async (req, res) => {
+  await pool.query(
+    'update loaneritem set itemname = $1, value = $2, itemdescription = $3, userid = $4 where itemid = $5',
+    [
+      req.body.itemName,
+      req.body.itemValue,
+      req.body.itemDesc,
+      req.body.userId,
+      req.body.itemId,
+    ],
+  )
+  res.sendStatus(200)
 })
 
 app.get('*', (req, res) => {

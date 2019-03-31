@@ -10,7 +10,11 @@ import {
   Container,
   CardDeck,
   Spinner,
+  Button,
+  OverlayTrigger,
+  Popover,
 } from 'react-bootstrap'
+import * as Icon from 'react-feather'
 
 import AddItem from '../Components/AddItem'
 import NavBar from '../Components/NavBar'
@@ -73,26 +77,62 @@ class Main extends Component {
           <AddItem
             selectedUser={selectedUser}
             toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+            isEditing={false}
           />,
         )
         break
       case 'Items':
         userItems.forEach((row) => {
+          const popover = (
+            <Popover
+              id="popover-basic"
+              title="Edit Item"
+              style={{ width: '18rem' }}
+            >
+              <AddItem
+                selectedUser={selectedUser}
+                toggleLoading={this.toggleLoading}
+                loadTabData={this.loadTabData}
+                selectedItem={row}
+                isEditing={true}
+              />
+            </Popover>
+          )
+
           content.push(
             <CardDeck style={{ paddingBottom: '10px' }}>
               <Card
                 className="text-center"
-                bg="light"
+                bg="dark"
+                text="white"
                 border="dark"
                 style={{ width: '18rem' }}
               >
-                <Card.Header>Header</Card.Header>
                 <Card.Body>
-                  <Card.Title>{_.get(row, 'itemname')}</Card.Title>
-                  <Card.Subtitle>Price: {_.get(row, 'value')}</Card.Subtitle>
-                  <Card.Text>{_.get(row, 'itemdescription')}</Card.Text>
+                  <Card.Title>
+                    {_.get(row, 'itemname')}{' '}
+                    <OverlayTrigger
+                      rootClose={true}
+                      trigger="click"
+                      placement="right"
+                      overlay={popover}
+                    >
+                      <Icon.Edit style={{ cursor: 'pointer' }} />
+                    </OverlayTrigger>
+                  </Card.Title>
+                  <Card.Subtitle>Price: ${_.get(row, 'value')}</Card.Subtitle>
+                  <Card.Text>
+                    Description: {_.get(row, 'itemdescription')}
+                  </Card.Text>
                 </Card.Body>
-                <Card.Footer>Item Id: {_.get(row, 'itemid')}</Card.Footer>
+                <Card.Footer>
+                  <div>
+                    <Button variant="light" size="sm">
+                      Put Up For Loan
+                    </Button>
+                  </div>
+                </Card.Footer>
               </Card>
             </CardDeck>,
           )
@@ -109,23 +149,6 @@ class Main extends Component {
         break
       default:
         break
-    }
-
-    if (content.length === 0) {
-      content.push(
-        <CardDeck style={{ paddingBottom: '10px' }}>
-          <Card
-            className="text-center"
-            bg="light"
-            border="dark"
-            style={{ width: '18rem' }}
-          >
-            <Card.Body>
-              <Card.Title>No data to display</Card.Title>
-            </Card.Body>
-          </Card>
-        </CardDeck>,
-      )
     }
 
     this.setState({ content })
@@ -158,70 +181,68 @@ class Main extends Component {
 
     return (
       <>
+        <NavBar selectedUser={selectedUser} userList={userList} />
         {isLoading ? (
           <div style={{ textAlign: 'center' }}>
             <Spinner animation="border" role="status" />
           </div>
         ) : (
-          <>
-            <NavBar selectedUser={selectedUser} userList={userList} />
-            <Container>
-              <Row>
-                <Col>
-                  <Nav
-                    className="justify-content-center"
-                    variant="pills"
-                    activeKey={selectedTab}
-                    style={{ height: '50px' }}
-                  >
-                    <Nav.Item>
-                      <Nav.Link
-                        eventKey="AddItem"
-                        onSelect={() => this.changeTab('AddItem')}
-                      >
-                        Add Item
-                      </Nav.Link>
-                    </Nav.Item>
-                    <Nav.Item>
-                      <Nav.Link
-                        eventKey="Items"
-                        onSelect={() => this.changeTab('Items')}
-                      >
-                        Your Items
-                      </Nav.Link>
-                    </Nav.Item>
-                    <Nav.Item>
-                      <Nav.Link
-                        eventKey="Loans"
-                        onSelect={() => this.changeTab('Loans')}
-                      >
-                        Loans
-                      </Nav.Link>
-                    </Nav.Item>
-                    <Nav.Item>
-                      <Nav.Link
-                        eventKey="Other Users"
-                        onSelect={() => this.changeTab('Other Users')}
-                      >
-                        Other Users
-                      </Nav.Link>
-                    </Nav.Item>
-                    <Nav.Item>
-                      <Nav.Link
-                        eventKey="Past Loans"
-                        onSelect={() => this.changeTab('Past Loans')}
-                      >
-                        Past Loans
-                      </Nav.Link>
-                    </Nav.Item>
-                  </Nav>
-                </Col>
-              </Row>
-              <Row style={{ paddingBottom: '20px' }}>
-                <Col>{content}</Col>
-              </Row>
-            </Container>
-          </>
+          <Container>
+            <Row>
+              <Col>
+                <Nav
+                  className="justify-content-center"
+                  variant="pills"
+                  activeKey={selectedTab}
+                  style={{ height: '50px' }}
+                >
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="AddItem"
+                      onSelect={() => this.changeTab('AddItem')}
+                    >
+                      Add Item
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Items"
+                      onSelect={() => this.changeTab('Items')}
+                    >
+                      Your Items
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Loans"
+                      onSelect={() => this.changeTab('Loans')}
+                    >
+                      Loans
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Other Users"
+                      onSelect={() => this.changeTab('Other Users')}
+                    >
+                      Other Users
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Past Loans"
+                      onSelect={() => this.changeTab('Past Loans')}
+                    >
+                      Past Loans
+                    </Nav.Link>
+                  </Nav.Item>
+                </Nav>
+              </Col>
+            </Row>
+            <Row style={{ paddingBottom: '20px' }}>
+              <Col>{content}</Col>
+            </Row>
+          </Container>
         )}
       </>
     )

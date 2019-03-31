@@ -6,6 +6,9 @@ import axios from 'axios'
 interface MyProps {
   selectedUser: object
   toggleLoading: (callback: () => void) => void
+  selectedItem?: object
+  isEditing: boolean
+  loadTabData: () => Promise<void>
 }
 
 interface MyState {
@@ -26,6 +29,18 @@ class AddItem extends Component<MyProps, MyState> {
     this.handleChange = this.handleChange.bind(this)
   }
 
+  componentDidMount() {
+    const { selectedItem } = this.props
+
+    if (selectedItem) {
+      this.setState({
+        itemName: _.get(selectedItem, 'itemname'),
+        itemValue: _.get(selectedItem, 'value'),
+        itemDesc: _.get(selectedItem, 'itemdescription'),
+      })
+    }
+  }
+
   handleChange = (event: any) => {
     const target = event.target
     const value = target.value
@@ -37,14 +52,29 @@ class AddItem extends Component<MyProps, MyState> {
   }
 
   handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    const { selectedUser, toggleLoading } = this.props
+    const {
+      selectedUser,
+      toggleLoading,
+      isEditing,
+      selectedItem,
+      loadTabData,
+    } = this.props
     const userId = _.get(selectedUser, 'userId')
+    const itemId = _.get(selectedItem, 'itemid')
 
     toggleLoading(async () => {
-      await axios.post(`/add-item`, {
-        userId,
-        ...this.state,
-      })
+      isEditing
+        ? await axios.patch(`/add-item`, {
+            itemId,
+            userId,
+            ...this.state,
+          })
+        : await axios.post(`/add-item`, {
+            userId,
+            ...this.state,
+          })
+
+      await loadTabData()
       toggleLoading(() => {})
     })
     event.preventDefault()
@@ -70,7 +100,7 @@ class AddItem extends Component<MyProps, MyState> {
             name="itemValue"
             min="0"
             type="number"
-            placeholder="Item Price"
+            placeholder="Item Price ($)"
             onChange={this.handleChange}
             value={`${this.state.itemValue}`}
             required
@@ -88,7 +118,7 @@ class AddItem extends Component<MyProps, MyState> {
           />
         </Form.Group>
         <Button variant="primary" type="submit">
-          Add
+          {this.props.isEditing ? 'Save' : 'Add'}
         </Button>
       </Form>
     )
