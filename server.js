@@ -7,7 +7,6 @@ const morgan = require('morgan')
 const helmet = require('helmet')
 const { Pool } = require('pg')
 const cors = require('cors')
-const hash = require('object-hash')
 
 const { checkInvoicedLoanSchema } = require('./middleware')
 
