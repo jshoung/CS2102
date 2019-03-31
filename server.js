@@ -99,10 +99,9 @@ app.post('/users/loans/create', checkInvoicedLoanSchema, async (req, res) => {
   let data
   try {
     data = await pool.query(
-      `insert into InvoicedLoan (invoiceID, startDate, endDate, penalty, loanFee, loanerID, borrowerID, itemID) 
-      values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `insert into InvoicedLoan (startDate, endDate, penalty, loanFee, loanerID, borrowerID, itemID) 
+      values ($1, $2, $3, $4, $5, $6, $7)`,
       [
-        req.body.invoiceID,
         req.body.startDate,
         req.body.endDate,
         req.body.penalty,
