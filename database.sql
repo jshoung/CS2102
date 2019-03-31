@@ -210,7 +210,7 @@ returns trigger as
 $$
 begin
 	if (new.reporter = new.reportee) then
-		raise notice 'You cannot report yourself';
+		raise exception 'You cannot report yourself';
 return null;
 else
 return new;
@@ -254,11 +254,11 @@ begin
 	where advID = new.advID;
 
 	if (previousHighestBid is null and new.price < adMinimumPrice) then 
-		raise notice 'You have to at least bid the minimum price';
+		raise exception 'You have to at least bid the minimum price';
 	return null;
 	elsif
 	(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
-		raise notice 'You have to at least bid the highest bid price, plus the minimum increase';
+		raise exception 'You have to at least bid the highest bid price, plus the minimum increase';
 	return null;
 	else
 	return new;
@@ -310,7 +310,7 @@ begin
 	from Advertisement
 	where advID = new.advID;
 	if (new.borrowerID = originalAdvertiser) then 
-		raise notice 'You cannot bid for your own advertisements';
+		raise exception 'You cannot bid for your own advertisements';
 	return null;
 	else
 	return new;
@@ -342,15 +342,15 @@ begin
 	where advID = new.advID;
 
 	if (new.userID != creatorID) then 
-		raise notice 'creator ID is %', creatorID;
-raise notice 'You can only choose bids that you created the advertisements for';
+		raise exception 'creator ID is %', creatorID;
+raise exception 'You can only choose bids that you created the advertisements for';
 return null;
 elsif new.bidID not in
 (select bidID
 from Bid
 where advID = new.advID)
 then 
-		raise notice 'You can only choose the bids for your own advertisement';
+		raise exception 'You can only choose the bids for your own advertisement';
 return null;
 else
 return new;
@@ -391,7 +391,7 @@ execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid
 -- 	where new.userID = borrowerID and new.itemOwnerID = loanerID and new.itemID = itemID;
 
 -- 	if (earliestLoanDate is null or earliestLoanDate > new.reviewDate) then 
--- 		raise notice 'You have to use the item first before reviewing it';
+-- 		raise exception 'You have to use the item first before reviewing it';
 -- 	return null;
 -- 	else
 -- 	return new;
@@ -415,7 +415,7 @@ execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid
 -- $$
 -- begin
 -- 	if (new.rating < 0 or new.rating > 5) then 
--- 		raise notice 'ratings have to be between 0 and 5';
+-- 		raise exception 'ratings have to be between 0 and 5';
 -- return null;
 -- else
 -- return new;
@@ -449,14 +449,14 @@ begin
 	if (select max(invoiceID)
 	from InvoicedLoan
 	where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
-		raise notice  'You cannot begin a loan when that item is on loan during that time';
+		raise exception  'You cannot begin a loan when that item is on loan during that time';
 return null;
 elsif
 (select max(invoiceID)
 from InvoicedLoan
 where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID)
 is not null then 
-		raise notice 'You cannot have an item on loan when that item is on loan to someone else during that time';
+		raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time';
 return null;
 else
 return new;
@@ -482,7 +482,7 @@ returns trigger as
 $$
 begin
 	if (new.loanerID = new.borrowerID) then 
-		raise notice 'You cannot make a loan on your own item';
+		raise exception 'You cannot make a loan on your own item';
 return null;
 else
 return new;
@@ -507,7 +507,7 @@ returns trigger as
 $$
 begin
 	if (new.startDate > new.endDate) then 
-		raise notice 'Start date cannot be after the end date';
+		raise exception 'Start date cannot be after the end date';
 return null;
 else
 return new;
@@ -533,7 +533,7 @@ returns trigger as
 $$
 begin
 	if (new.openingDate > new.closingDate) then 
-		raise notice 'Opening date cannot be after the closing date';
+		raise exception 'Opening date cannot be after the closing date';
 return null;
 else
 return new;
@@ -560,7 +560,7 @@ returns trigger as
 $$
 begin
 	if (new.minimumIncrease <= 0) then 
-		raise notice 'Minimum Increase of the bid in an advertisement should be greater than zero';
+		raise exception 'Minimum Increase of the bid in an advertisement should be greater than zero';
 
 return null;
 else
