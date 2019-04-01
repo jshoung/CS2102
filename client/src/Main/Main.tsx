@@ -1,136 +1,249 @@
 import React, { Component } from 'react'
+import * as _ from 'lodash'
 import axios from 'axios'
-import { Nav, Dropdown, Col, Row, Card, CardGroup } from 'react-bootstrap'
+import {
+  Nav,
+  Dropdown,
+  Col,
+  Row,
+  Card,
+  Container,
+  CardDeck,
+  Spinner,
+  Button,
+  OverlayTrigger,
+  Popover,
+} from 'react-bootstrap'
+import * as Icon from 'react-feather'
+
+import AddItem from '../Components/AddItem'
+import NavBar from '../Components/NavBar'
 
 class Main extends Component {
   state = {
-    data: { rows: [{ userid: 0, name: '', address: '' }] },
-    user: { name: '', userid: 0 },
-    tab: '',
-    userItems: [{ itemdescription: '', itemid: 0, itemname: '', value: 0 }],
+    data: {},
+    userList: [],
+    selectedUser: {},
+    selectedTab: '',
+    userItems: [],
+    content: [],
+    isLoading: false,
   }
 
   async componentDidMount() {
-    const payload = (await axios.post(`/users`)).data
+    const payload = (await axios.get(`/users`)).data
 
-    this.setState({
-      ...payload,
+    this.setState(
+      {
+        ...payload,
+      },
+      () => this.loadUsers(),
+    )
+  }
+
+  toggleLoading = (callback: () => void) => {
+    this.setState({ isLoading: !this.state.isLoading }, callback)
+  }
+
+  changeUser = (name: string, userId: number) => {
+    this.setState({ selectedUser: { name, userId } }, async () => {
+      await this.loadTabData()
     })
   }
 
-  changeUser = (name: string, userid: number) => {
-    axios
-      .post(`/users/items`, {
-        userId: userid,
-      })
-      .then((items) => {
-        this.setState({ userItems: items.data.data.rows })
-      })
-    this.setState({ user: { name, userid } })
-  }
+  loadUsers = () => {
+    const { data } = this.state
 
-  changeTab = (tab: string) => {
-    this.setState({ tab })
-  }
-
-  render() {
-    const { data, tab, user, userItems } = this.state
-    let content = null
-
-    switch (tab) {
-      case 'Items':
-        let innerContent: any[] = []
-        userItems.forEach((row) => {
-          innerContent.push(
-            <Card>
-              <Card.Body>
-                <Card.Title>{row.itemname}</Card.Title>
-                <Card.Subtitle>Price: {row.value}</Card.Subtitle>
-                <Card.Text>{row.itemdescription}test description</Card.Text>
-                <Card.Footer>Item Id: {row.itemid}</Card.Footer>
-              </Card.Body>
-            </Card>,
-          )
-        })
-        content = <CardGroup>{innerContent}</CardGroup>
-        break
-      case 'Loans':
-        content = <div>Loan name</div>
-        break
-      case 'Other Users':
-        content = <div>Other users</div>
-        break
-      case 'Past Loans':
-        content = <div>Past Loan name</div>
-        break
-      default:
-        break
-    }
-
-    let dropdownMenu: any[] = []
-    data.rows.forEach((row) => {
+    let userList: any[] = []
+    _.get(data, 'rows').forEach((row: any) => {
       let name = row.name
       let userid = row.userid
-      dropdownMenu.push(
+      userList.push(
         <Dropdown.Item onSelect={() => this.changeUser(name, userid)}>
           {name}
         </Dropdown.Item>,
       )
     })
+    this.setState({ userList })
+  }
+
+  updateTab = () => {
+    const { userItems, selectedTab, selectedUser } = this.state
+    let content: any[] = []
+
+    switch (selectedTab) {
+      case 'AddItem':
+        content.push(
+          <AddItem
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+            isEditing={false}
+          />,
+        )
+        break
+      case 'Items':
+        userItems.forEach((row) => {
+          const popover = (
+            <Popover
+              id="popover-basic"
+              title="Edit Item"
+              style={{ width: '18rem' }}
+            >
+              <AddItem
+                selectedUser={selectedUser}
+                toggleLoading={this.toggleLoading}
+                loadTabData={this.loadTabData}
+                selectedItem={row}
+                isEditing={true}
+              />
+            </Popover>
+          )
+
+          content.push(
+            <CardDeck style={{ paddingBottom: '10px' }}>
+              <Card
+                className="text-center"
+                bg="dark"
+                text="white"
+                border="dark"
+                style={{ width: '18rem' }}
+              >
+                <Card.Body>
+                  <Card.Title>
+                    {_.get(row, 'itemname')}{' '}
+                    <OverlayTrigger
+                      rootClose={true}
+                      trigger="click"
+                      placement="right"
+                      overlay={popover}
+                    >
+                      <Icon.Edit style={{ cursor: 'pointer' }} />
+                    </OverlayTrigger>
+                  </Card.Title>
+                  <Card.Subtitle>Price: ${_.get(row, 'value')}</Card.Subtitle>
+                  <Card.Text>
+                    Description: {_.get(row, 'itemdescription')}
+                  </Card.Text>
+                </Card.Body>
+                <Card.Footer>
+                  <div>
+                    <Button variant="light" size="sm">
+                      Put Up For Loan
+                    </Button>
+                  </div>
+                </Card.Footer>
+              </Card>
+            </CardDeck>,
+          )
+        })
+        break
+      case 'Loans':
+        // content = <div>Loan name</div>
+        break
+      default:
+        break
+    }
+
+    this.setState({ content })
+  }
+
+  renderWelcomeMessage = () => (
+    <CardDeck style={{ paddingBottom: '10px' }}>
+      <Card
+        className="text-center"
+        bg="dark"
+        text="white"
+        border="dark"
+        style={{ width: '18rem' }}
+      >
+        <Card.Body>
+          <Card.Title>Welcome to CarouShare!</Card.Title>
+        </Card.Body>
+      </Card>
+    </CardDeck>
+  )
+
+  loadTabData = async () => {
+    const { selectedUser } = this.state
+    const userId = _.get(selectedUser, 'userId')
+
+    const items = await axios.post(`/users/items`, {
+      userId,
+    })
+    this.setState({ userItems: items.data.data.rows }, () => {
+      this.updateTab()
+    })
+  }
+
+  changeTab = (selectedTab: string) => {
+    this.setState({ selectedTab }, this.loadTabData)
+  }
+
+  render() {
+    const {
+      selectedTab,
+      selectedUser,
+      userList,
+      content,
+      isLoading,
+    } = this.state
 
     return (
-      // <div className='container'>
-      //   <div className='row'>
-      //     <div className='jumbotron col-12 text-center'>
-      //       <h1 className='display-3'>{data.title}</h1>
-      //       <p className='lead'>{data.description}</p>
-      //     </div>
-      //   </div>
-      // </div>
-      <div className="container">
-        <Row>
-          <Col md="auto">
-            <Dropdown>
-              <Dropdown.Toggle variant="primary" id="dropdown-basic">
-                Select User
-              </Dropdown.Toggle>
-              <Dropdown.Menu>{dropdownMenu}</Dropdown.Menu>
-            </Dropdown>
-          </Col>
-          <Col>
-            <h4 className="user">{user.name}</h4>
-          </Col>
-        </Row>
-        <Nav variant="tabs" activeKey={tab}>
-          <Nav.Item>
-            <Nav.Link eventKey="Items" onSelect={() => this.changeTab('Items')}>
-              Items
-            </Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link eventKey="Loans" onSelect={() => this.changeTab('Loans')}>
-              Loans
-            </Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link
-              eventKey="Other Users"
-              onSelect={() => this.changeTab('Other Users')}
-            >
-              Other Users
-            </Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link
-              eventKey="Past Loans"
-              onSelect={() => this.changeTab('Past Loans')}
-            >
-              Past Loans
-            </Nav.Link>
-          </Nav.Item>
-        </Nav>
-        {content}
-      </div>
+      <>
+        <NavBar selectedUser={selectedUser} userList={userList} />
+        {isLoading ? (
+          <div style={{ textAlign: 'center' }}>
+            <Spinner animation="border" role="status" />
+          </div>
+        ) : (
+          <Container>
+            <Row>
+              <Col>
+                <Nav
+                  className="justify-content-center"
+                  variant="pills"
+                  activeKey={selectedTab}
+                  style={{ height: '50px' }}
+                >
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="AddItem"
+                      onSelect={() => this.changeTab('AddItem')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Add Item
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Items"
+                      onSelect={() => this.changeTab('Items')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Your Items
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Loans"
+                      onSelect={() => this.changeTab('Loans')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Loans
+                    </Nav.Link>
+                  </Nav.Item>
+                </Nav>
+              </Col>
+            </Row>
+            <Row style={{ paddingBottom: '20px' }}>
+              <Col>
+                {_.isEmpty(selectedTab) ? this.renderWelcomeMessage() : content}
+              </Col>
+            </Row>
+          </Container>
+        )}
+      </>
     )
   }
 }
