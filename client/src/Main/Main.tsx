@@ -141,18 +141,28 @@ class Main extends Component {
       case 'Loans':
         // content = <div>Loan name</div>
         break
-      case 'Other Users':
-        // content = <div>Other users</div>
-        break
-      case 'Past Loans':
-        // content = <div>Past Loan name</div>
-        break
       default:
         break
     }
 
     this.setState({ content })
   }
+
+  renderWelcomeMessage = () => (
+    <CardDeck style={{ paddingBottom: '10px' }}>
+      <Card
+        className="text-center"
+        bg="dark"
+        text="white"
+        border="dark"
+        style={{ width: '18rem' }}
+      >
+        <Card.Body>
+          <Card.Title>Welcome to CarouShare!</Card.Title>
+        </Card.Body>
+      </Card>
+    </CardDeck>
+  )
 
   loadTabData = async () => {
     const { selectedUser } = this.state
@@ -200,6 +210,7 @@ class Main extends Component {
                     <Nav.Link
                       eventKey="AddItem"
                       onSelect={() => this.changeTab('AddItem')}
+                      disabled={_.isEmpty(selectedUser)}
                     >
                       Add Item
                     </Nav.Link>
@@ -208,6 +219,7 @@ class Main extends Component {
                     <Nav.Link
                       eventKey="Items"
                       onSelect={() => this.changeTab('Items')}
+                      disabled={_.isEmpty(selectedUser)}
                     >
                       Your Items
                     </Nav.Link>
@@ -216,31 +228,18 @@ class Main extends Component {
                     <Nav.Link
                       eventKey="Loans"
                       onSelect={() => this.changeTab('Loans')}
+                      disabled={_.isEmpty(selectedUser)}
                     >
                       Loans
-                    </Nav.Link>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <Nav.Link
-                      eventKey="Other Users"
-                      onSelect={() => this.changeTab('Other Users')}
-                    >
-                      Other Users
-                    </Nav.Link>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <Nav.Link
-                      eventKey="Past Loans"
-                      onSelect={() => this.changeTab('Past Loans')}
-                    >
-                      Past Loans
                     </Nav.Link>
                   </Nav.Item>
                 </Nav>
               </Col>
             </Row>
             <Row style={{ paddingBottom: '20px' }}>
-              <Col>{content}</Col>
+              <Col>
+                {_.isEmpty(selectedTab) ? this.renderWelcomeMessage() : content}
+              </Col>
             </Row>
           </Container>
         )}
