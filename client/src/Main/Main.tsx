@@ -17,7 +17,9 @@ import {
 import * as Icon from 'react-feather'
 
 import AddItem from '../Components/AddItem'
+import BorrowedList from '../Components/BorrowedList'
 import NavBar from '../Components/NavBar'
+import { parseMDYDate } from '../util/moment'
 
 class Main extends Component {
   state = {
@@ -100,6 +102,13 @@ class Main extends Component {
             </Popover>
           )
 
+          const itemDescription = _.get(row, 'itemdescription')
+          const borrowerName = _.get(row, 'borrowername')
+          const loanFee = _.get(row, 'loanfee')
+          const startDate = _.get(row, 'startdate')
+          const endDate = _.get(row, 'enddate')
+          const penalty = _.get(row, 'penalty')
+
           content.push(
             <CardDeck style={{ paddingBottom: '10px' }}>
               <Card
@@ -121,25 +130,34 @@ class Main extends Component {
                       <Icon.Edit style={{ cursor: 'pointer' }} />
                     </OverlayTrigger>
                   </Card.Title>
-                  <Card.Subtitle>Price: ${_.get(row, 'value')}</Card.Subtitle>
+                  <Card.Subtitle>
+                    Price: ${_.get(row, 'value')} <br />
+                    {borrowerName
+                      ? `Loaned to ${borrowerName} for $${loanFee} from ${parseMDYDate(
+                          startDate,
+                        )} to ${parseMDYDate(endDate)} with penalty $${penalty}`
+                      : ''}
+                  </Card.Subtitle>
                   <Card.Text>
-                    Description: {_.get(row, 'itemdescription')}
+                    Description:{' '}
+                    {itemDescription
+                      ? `${_.get(row, 'itemdescription')}`
+                      : ' - '}
                   </Card.Text>
                 </Card.Body>
-                <Card.Footer>
-                  <div>
-                    <Button variant="light" size="sm">
-                      Put Up For Loan
-                    </Button>
-                  </div>
-                </Card.Footer>
               </Card>
             </CardDeck>,
           )
         })
         break
       case 'Loans':
-        // content = <div>Loan name</div>
+        content.push(
+          <BorrowedList
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+          />,
+        )
         break
       default:
         break
@@ -230,7 +248,7 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Loans')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Loans
+                      Borrowed Items
                     </Nav.Link>
                   </Nav.Item>
                 </Nav>

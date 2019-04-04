@@ -84,11 +84,14 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
     return res.status(404).json({ errors: 'User not found in the database' })
   }
   let data = await pool.query(
-    `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, IL.startDate, IL.endDate, IL.penalty, IL.loanFee, IL.loanerId, IL.borrowerId 
+    `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, IL.startDate, IL.endDate, IL.penalty, IL.loanFee, IL.borrowerId, name as borrowerName
                   from LoanerItem LI
                   left outer join 
-                  InvoicedLoan as IL
+                  InvoicedLoan IL
                   on LI.userID = IL.loanerID and LI.itemId = IL.itemID
+                  left outer join
+                  UserAccount UA
+                  on UA.userId = IL.borrowerId
                   where LI.userID = $1`,
     [req.body.userId],
   )
