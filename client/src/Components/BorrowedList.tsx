@@ -13,6 +13,7 @@ interface MyProps {
 
 interface MyState {
   data: { rows: any }
+  userId: string
 }
 
 class BorrowedList extends Component<MyProps, MyState> {
@@ -20,25 +21,15 @@ class BorrowedList extends Component<MyProps, MyState> {
     super(props)
     this.state = {
       data: { rows: [] },
+      userId: '',
     }
   }
 
-  // Don't judge
   async componentDidMount() {
-    const { selectedUser } = this.props
-    const userId = _.get(selectedUser, 'userId')
-
-    const { data } = await axios.get(`/users/loans`, {
-      params: {
-        userId: userId,
-        isLoaner: false,
-      },
-    })
-
-    this.setState({ ...data })
+    await this.fetchBorrowedItems()
   }
 
-  async componentDidUpdate() {
+  async fetchBorrowedItems() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
 
@@ -49,7 +40,7 @@ class BorrowedList extends Component<MyProps, MyState> {
       },
     })
 
-    this.setState({ ...data })
+    this.setState({ userId: userId, ...data })
   }
 
   renderLoans() {
@@ -58,6 +49,11 @@ class BorrowedList extends Component<MyProps, MyState> {
   render() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
+
+    // Hack to ensure data is updated when changing users
+    if (userId != this.state.userId) {
+      this.fetchBorrowedItems()
+    }
     const { rows } = this.state.data
     return rows.map((row: any) => (
       <CardDeck style={{ paddingBottom: '10px' }}>
