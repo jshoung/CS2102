@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "concurrently": "^4.1.0",
+    "moment": "^2.24.0",
     "nodemon": "^1.18.10"
   },
   "scripts": {
