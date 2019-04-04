@@ -18,6 +18,8 @@ import * as Icon from 'react-feather'
 
 import AddItem from '../Components/AddItem'
 import BorrowedList from '../Components/BorrowedList'
+import BrowseItems from '../Components/BrowseItems'
+
 import NavBar from '../Components/NavBar'
 import { parseMDYDate } from '../util/moment'
 
@@ -159,6 +161,14 @@ class Main extends Component {
           />,
         )
         break
+      case 'BrowseItems':
+        content.push(
+          <BrowseItems
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+          />,
+        )
       default:
         break
     }
@@ -249,6 +259,15 @@ class Main extends Component {
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Borrowed Items
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="BrowseItems"
+                      onSelect={() => this.changeTab('BrowseItems')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Browse Items
                     </Nav.Link>
                   </Nav.Item>
                 </Nav>
