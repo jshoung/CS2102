@@ -1,5 +1,5 @@
 const express = require('express')
-const { body, validationResult } = require('express-validator/check')
+const { query, body, validationResult } = require('express-validator/check')
 const bodyParser = require('body-parser')
 const path = require('path')
 const compression = require('compression')
@@ -216,22 +216,46 @@ app.delete('/users/loans', [body('invoiceID').isInt()], async (req, res) => {
   res.send({ data })
 })
 
-app.get('/users/loans', [body('userId').isInt()], async (req, res) => {
-  const errors = validationResult(req)
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
-  }
-  const body = req.body
+app.get(
+  '/users/loans',
+  [query('userId').isInt(), query('isLoaner').isBoolean()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
 
-  let data = await pool.query(
-    `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID
-      from InvoicedLoan IL
-        where IL.loanerID = $1 or IL.borrowerID = $1`,
-    [req.body.userId],
-  )
+    let data
 
-  res.send({ data })
-})
+    // Getting InvoicedLoan object where userId = loanerID
+    if (req.query.isLoaner === 'true') {
+      data = await pool.query(
+        `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID,itemName, value, itemDescription, name
+        from (InvoicedLoan IL 
+              natural join 
+              LoanerItem)
+              inner join UserAccount UA
+              on IL.borrowerID = UA.userID
+          where IL.loanerID = $1`,
+        [req.query.userId],
+      )
+    } else {
+      // Otherwise
+      data = await pool.query(
+        `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID,itemName, value, itemDescription,name
+        from InvoicedLoan IL 
+              natural join 
+              LoanerItem
+              inner join UserAccount UA
+              on IL.loanerID = UA.userID
+          where IL.borrowerID = $1`,
+        [req.query.userId],
+      )
+    }
+
+    res.send({ data })
+  },
+)
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname + '/client/build/index.html'))
