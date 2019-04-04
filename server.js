@@ -78,14 +78,14 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
 
   if (req.body.isListAvailable) {
     data = await pool.query(
-      `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, IL.startDate, IL.endDate, IL.penalty, IL.loanFee, IL.borrowerId, name as borrowerName
+      `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, UA.name as ownerName
                     from LoanerItem LI
                     left outer join 
                     InvoicedLoan IL
                     on LI.userID = IL.loanerID and LI.itemId = IL.itemID
                     left outer join
                     UserAccount UA
-                    on UA.userId = IL.borrowerId
+                    on UA.userId = LI.userId
                     where IL.invoiceID is NULL`,
     )
   } else {
