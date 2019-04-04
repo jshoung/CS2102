@@ -23,6 +23,7 @@ class BorrowedList extends Component<MyProps, MyState> {
     }
   }
 
+  // Don't judge
   async componentDidMount() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
