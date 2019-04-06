@@ -13,12 +13,21 @@ const NavBar = (props: OwnProps) => {
   const { selectedUser, userList } = props
 
   return (
-    <nav className="navbar navbar-dark bg-primary fixed-top">
+    <nav className="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
       <Link className="navbar-brand" to="/">
         <Icon.Link />
         {' CarouShare'}
       </Link>
-      <Dropdown>
+      <div className="collapse navbar-collapse" id="navbarColor01">
+        <ul className="navbar-nav mr-auto">
+          <li className="nav-item">
+            <Link className="nav-link" to="/groups">
+              {'Interest Groups'}
+            </Link>
+          </li>
+        </ul>
+      </div>
+      <Dropdown className="my-2 my-lg-0">
         <Dropdown.Toggle
           style={{ width: '300px', fontSize: '24px' }}
           variant="primary"
