@@ -233,6 +233,19 @@ app.get('/users/loans', [body('userId').isInt()], async (req, res) => {
   res.send({ data })
 })
 
+// *************************** //
+//        Interest Groups      //
+// *************************** //
+
+app.get('/interestgroups', async (req, res) => {
+  let data = await pool.query(
+    `
+    select groupName, groupDescription from InterestGroup
+    `,
+  )
+  res.send({ data })
+})
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname + '/client/build/index.html'))
 })
