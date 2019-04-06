@@ -191,7 +191,6 @@ create table Bid
 	borrowerID integer,
 	advID integer,
 	bidDate date not null,
-	validBid boolean default false,
 	primary key (bidID),
 	foreign key (borrowerID) references Borrower (userID) on delete cascade,
 	foreign key (advID) references Advertisement (advID) on delete cascade
@@ -250,7 +249,6 @@ create trigger trig1MinimumBidIncreaseTrig
 before
 update or insert on Bid
 for each row
-when (new.validBid = false)
 execute procedure checkMinimumIncrease();
 
 create or replace function checkBidMadeBetweenAdvOpenAndCloseDate()
@@ -278,7 +276,6 @@ create trigger trig2CheckBidMadeBetweenAdvOpenAndCloseDate
 before
 update or insert on Bid
 for each row
-when (new.validBid = false)
 execute procedure checkBidMadeBetweenAdvOpenAndCloseDate();
 
 
@@ -306,32 +303,11 @@ create trigger trig3CheckUnableToBidForYourOwnAdvertisement
 before
 update or insert on Bid
 for each row
-when (new.validBid = false)
 execute procedure checkUnableToBidForYourOwnAdvertisement();
 
-create or replace function updateHighestBidder()
-returns trigger as
-$$
-	begin
-		insert into Bid (bidID, price, borrowerID, advID, bidDate, validBid) values 
-		(new.bidID, new.price, new.borrowerID, new.advID, new.bidDate, true);
-		
-		update Advertisement
-		set highestBid = new.price,
-			highestBidder = new.borrowerID
-		where advID = new.advID;
-		return null;
-	end
-$$
-language plpgsql;
 
-create trigger trig4UpdateHighestBidderTrig
-before
-update or insert on Bid
-for each row
-when (new.validBid = false)
-execute procedure updateHighestBidder();
 
+drop procedure if exists insertNewBid;
 
 create or replace function checkChoosesYourOwnAdvertisementAndCorrectBid()
 returns trigger as 
@@ -462,12 +438,12 @@ $$
 	begin
 		if(select max(advID)
 		from advertisement
-		where new.openingDate >= openingDate and new.openingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid) is not null then 
+		where new.openingDate >= openingDate and new.openingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
 			raise exception  'You cannot advertise an item that is currently already being advertised';
 			return null;
 		elsif(select max(advID)
 			from advertisement
-			where new.closingDate >= openingDate and new.closingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid) is not null then 
+			where new.closingDate >= openingDate and new.closingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
 			raise exception 'You cannot advertise an item that is currently already being advertised';
 			return null;
 		else
@@ -485,7 +461,23 @@ for each row
 execute procedure checkNotAlreadyAdvertised();
 
 
+create or replace procedure insertNewBid(newBorrowerID integer,newAdvID integer,newBidDate date,newPrice integer)
+as
+$$
+	begin
+		insert into Bid (price, borrowerID, advID, bidDate) values 
+		(newPrice, newBorrowerID, newAdvID, newBidDate);
+		
+		update Advertisement
+		set highestBid = newPrice,
+			highestBidder = newBorrowerID
+		where advID = newadvID;
+	commit;
+	end;
+$$
+language plpgsql;
 
+select * from advertisement;
 --userID from 1 to 100 inclusive
 INSERT INTO UserAccount
 	(name,address)
@@ -854,32 +846,27 @@ VALUES
 	(null, null, 12, '01-04-2019', '07-02-2019', 2, 8, 8),
 	(null, null, 15, '04-02-2019', '05-04-2019', 2, 9, 9);
 
-INSERT INTO Bid
-	(borrowerID,advID,bidDate,price)
-VALUES
-	(64, 1,'03-01-2019',10),
-	(49, 1,'03-02-2019', 12),
-	(85, 1,'03-03-2019',14),
-	(76, 1,'03-04-2019', 16),
-	(57, 2,'01-04-2019', 12),
-	(64, 3,'04-02-2019', 15),
-	(49, 3,'05-03-2019', 17),
-	(85, 3,'05-04-2019',19),
-	(85, 4,'03-01-2019', 14),
-	(76, 4,'03-02-2019', 16),
-	(76, 5,'01-04-2019', 18),
-	(64, 5,'02-04-2019', 20),
-	(57, 6,'04-02-2019', 15),
-	(49, 6,'04-03-2019', 17),
-	(57, 6,'04-03-2019', 19),
-	(64, 7,'03-01-2019', 10),
-	(49, 7,'04-02-2019', 12),
-	(57, 7,'04-02-2019', 14),
-	(85, 8,'02-04-2019', 12),
-	(76, 9,'05-02-2019',16);
 	
-	
-	
+call insertNewBid(64, 1,'03-01-2019',10);
+call insertNewBid(49, 1,'03-02-2019',12);
+call insertNewBid(85, 1,'03-03-2019',14);
+call insertNewBid(76, 1,'03-04-2019',16);
+call insertNewBid(57, 2,'01-04-2019',12);
+call insertNewBid(64, 3,'04-02-2019',15);
+call insertNewBid(49, 3,'05-03-2019',17);
+call insertNewBid(85, 3,'05-04-2019',19);
+call insertNewBid(85, 4,'03-01-2019',14);
+call insertNewBid(76, 4,'03-02-2019',16);
+call insertNewBid(76, 5,'01-04-2019',18);
+call insertNewBid(64, 5,'02-04-2019',20);
+call insertNewBid(57, 6,'04-02-2019',15);
+call insertNewBid(49, 6,'04-03-2019',17);
+call insertNewBid(57, 6,'04-03-2019',19);
+call insertNewBid(64, 7,'03-01-2019',10);
+call insertNewBid(49, 7,'04-02-2019',12);
+call insertNewBid(57, 7,'04-02-2019',14);
+call insertNewBid(85, 8,'02-04-2019',12);
+call insertNewBid(76, 9,'05-02-2019',16);
 	
 
 INSERT INTO Chooses
