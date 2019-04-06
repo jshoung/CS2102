@@ -3,7 +3,7 @@ import * as _ from 'lodash'
 import axios from 'axios'
 import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
 
-import { parseMDYDate } from '../util/moment'
+import { parseMDYLongDate } from '../util/moment'
 
 interface MyProps {
   selectedUser: object
@@ -43,6 +43,15 @@ class InterestGroups extends Component<MyProps, MyState> {
     })
   }
 
+  async joinInterestGroup(userId: string, groupName: string) {
+    await axios.post('/joins', {
+      userId,
+      groupName,
+    })
+
+    this.fetchInterestGroups()
+  }
+
   renderInterestGroups(groupList: any) {
     const { selectedUser } = this.props
     const selectedUserId = _.get(selectedUser, 'userId')
@@ -75,9 +84,15 @@ class InterestGroups extends Component<MyProps, MyState> {
             </Card.Body>
             <Card.Footer>
               {userId === selectedUserId ? (
-                `Joined on ${parseMDYDate(groupJoinDate)}`
+                `Joined on ${parseMDYLongDate(groupJoinDate)}`
               ) : (
-                <Button variant="light" size="sm">
+                <Button
+                  onClick={() => {
+                    this.joinInterestGroup(selectedUserId, groupName)
+                  }}
+                  variant="light"
+                  size="sm"
+                >
                   Join Group
                 </Button>
               )}

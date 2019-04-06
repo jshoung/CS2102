@@ -1,5 +1,5 @@
 import moment from 'moment'
 
-export const parseMDYDate = (dateString: any) => {
+export const parseMDYLongDate = (dateString: any) => {
   return moment(dateString).format('LL')
 }

@@ -3,7 +3,7 @@ import * as _ from 'lodash'
 import axios from 'axios'
 import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
 
-import { parseMDYDate } from '../util/moment'
+import { parseMDYLongDate } from '../util/moment'
 
 interface MyProps {
   selectedUser: object
@@ -45,7 +45,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
   }
 
   async leaveGroup(groupName: string, userId: string) {
-    await axios.delete('/users/interestgroups', {
+    await axios.delete('/joins', {
       params: {
         userId,
         groupName,
@@ -84,7 +84,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
             <Card.Footer
               style={{ display: 'flex', justifyContent: 'space-between' }}
             >
-              Joined on {parseMDYDate(groupJoinDate)}
+              Joined on {parseMDYLongDate(groupJoinDate)}
               <Button
                 onClick={() => this.leaveGroup(groupName, userId)}
                 variant="outline-danger"
