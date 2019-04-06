@@ -243,6 +243,7 @@ app.get('/interestgroups', async (req, res) => {
     select groupName, groupDescription from InterestGroup
     `,
   )
+  res.send({ data })
 })
 
 app.get('*', (req, res) => {
