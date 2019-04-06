@@ -1,15 +1,3 @@
---Project 
---Data generated using https://www.generatedata.com/
-
-SELECT
-    table_schema || '.' || table_name
-FROM
-    information_schema.tables
-WHERE
-    table_type = 'BASE TABLE'
-AND
-    table_schema NOT IN ('pg_catalog', 'information_schema');
-
 -- delete tables if already exists
 DROP TABLE IF EXISTS UserAccount
 CASCADE;
@@ -74,8 +62,11 @@ create table Report
 create table InterestGroup
 (
 	groupName varchar(80),
-	groupDescription varchar(8000),
-	primary key (groupName)
+	groupDescription varchar(8000) not null,
+	groupAdminID integer not null,
+	creationDate date not null,
+	primary key (groupName),
+	foreign key (groupAdminID) references UserAccount (userID) on delete set null
 );
 
 -- (userID, groupName) is the primary key because each user can only join each group once.  
@@ -321,9 +312,6 @@ for each row
 execute procedure checkUnableToBidForYourOwnAdvertisement();
 
 
-
-drop procedure if exists insertNewBid;
-
 create or replace function checkChoosesYourOwnAdvertisementAndCorrectBid()
 returns trigger as 
 $$
@@ -418,7 +406,6 @@ execute procedure checkReviewYourOwnInvoice();
 create or replace function checkLoanDateClash()
 returns trigger as
 $$
-	declare
 	begin
 		if (select max(invoiceID)
 		from InvoicedLoan
@@ -476,6 +463,162 @@ for each row
 execute procedure checkNotAlreadyAdvertised();
 
 
+create  or replace function checkCreatorCannotLeave()
+returns trigger as 
+$$
+	declare groupLeader integer;
+	begin
+		select groupAdminID
+		into groupLeader
+		from InterestGroup 
+		where old.groupName = groupName;
+		if(old.userID = groupLeader) then 
+			raise exception  'The group admin cannot leave the group, you have to hand over responsibilities first';
+			return null;
+		else
+			return old;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig1CheckCreatorCannotLeave
+before
+delete on Joins
+for each row
+execute procedure checkCreatorCannotLeave();
+
+
+create  or replace function checkJoinDateCannotBeBeforeCreationDate()
+returns trigger as 
+$$
+	declare groupCreationDate date;
+	begin
+		select creationDate
+		into groupCreationDate
+		from InterestGroup 
+		where new.groupName =  groupName;
+		if(new.joinDate < groupCreationDate) then 
+			raise exception 'You cannot join the group before the group has been created';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+--join date must be after group creation date.
+create trigger trig2CheckJoinDateCannotBeBeforeCreationDate
+before
+insert or update on Joins
+for each row
+execute procedure checkJoinDateCannotBeBeforeCreationDate();
+
+
+create  or replace function checkSuccessorMustBeMember()
+returns trigger as 
+$$
+	declare currentGroupAdminID integer;
+			successorID integer;
+	begin
+		select groupAdminID
+			into currentGroupAdminID
+			from InterestGroup
+			where new.groupName = groupName;
+		
+		select userID
+			into successorID
+			from Joins
+			where new.groupName = groupName and new.groupAdminID = userID;
+		
+		if(currentGroupAdminID != new.groupAdminID and (successorID is null) ) then 
+			raise exception 'The new group admin has to be have joined this group';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig1CheckSuccessorMustBeMember
+before
+update on InterestGroup
+for each row
+execute procedure checkSuccessorMustBeMember();
+
+
+create  or replace function checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate()
+returns trigger as 
+$$
+	declare currentAdminID integer;
+			currentGroupName varchar(80);
+			currentCreationDate date;
+			currentGroupDescription varchar(8000);
+	begin
+		select groupAdminID
+		into currentAdminID
+		from interestGroup 
+		where groupName = new.groupName;
+	
+		select groupName
+		into currentGroupName
+		from interestGroup 
+		where groupName = new.groupName;
+		
+		select creationDate
+		into currentCreationDate
+		from interestGroup 
+		where groupName = new.groupName;
+		
+		select groupDescription
+		into currentGroupDescription
+		from interestGroup 
+		where groupName = new.groupName;
+	
+		if(new.creationDate != currentCreationDate) then 
+			raise exception 'Creation date should never be changed';
+			return null;
+	
+		elsif(new.groupAdminID != currentAdminID and
+			(new.groupName != currentGroupName or 
+			 new.groupDescription != currentGroupDescription))then 
+			raise exception 'Only the group admin can make changes to group details';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig2CheckOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
+before
+update on InterestGroup
+for each row
+execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate();
+
+
+
+drop procedure if exists insertNewBid, insertNewInterestGroup;
+create or replace procedure insertNewInterestGroup(newGroupName varchar(80),newGroupDescription varchar(8000),newGroupAdminID integer,newCreationDate date)
+as
+$$
+	begin
+		insert into InterestGroup (groupName, groupDescription, groupAdminID, creationDate) values 
+		(newGroupName, newGroupDescription, newGroupAdminID, newCreationDate);
+		
+		insert into Joins (joinDate, userID, groupname) values
+		(newCreationDate, newGroupAdminID, newGroupName);
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
+
+
 create or replace procedure insertNewBid(newBorrowerID integer,newAdvID integer,newBidDate date,newPrice integer)
 as
 $$
@@ -492,7 +635,8 @@ $$
 $$
 language plpgsql;
 
-select * from advertisement;
+
+
 --userID from 1 to 100 inclusive
 INSERT INTO UserAccount
 	(name,address)
@@ -618,35 +762,24 @@ VALUES
 	( 'No basic respect', '03-29-2019', 25, 2);
 
 --5 groups are created, only the first 3 have descriptions.
-INSERT INTO InterestGroup
-	(groupName, groupDescription)
-VALUES
-	('Photography Club', 'For all things photos'),
-	('Spiderman Fans', 'Live and Die by the web'),
-	('Tech Geeks', 'Self-explanatory.  We like tech && are geeks');
-INSERT INTO InterestGroup
-	(groupName)
-VALUES
-	('Refined Music People'),
-	('Clothes Club');
+call insertNewInterestGroup('Photography Club','For all things photos',1,'02-22-2017');
+call insertNewInterestGroup('Spiderman Fans','Live and Die by the web',5,'02-22-2017');
+call insertNewInterestGroup('Tech Geeks','Self-explanatory.  We like tech && are geeks',8,'02-22-2017');
+call insertNewInterestGroup('Refined Music People','pish-posh',3,'02-22-2017');
+call insertNewInterestGroup('Clothes Club','forever 22 i guess',1,'02-22-2017');
 
 
---We  have userAccounts joining interestgroups
+--We have userAccounts joining interestgroups
 INSERT INTO Joins
 	(joinDate, userID, groupname)
 VALUES
-	('02-22-2018', 1, 'Photography Club'),
 	('02-21-2018', 2, 'Photography Club'),
 	('02-24-2018', 3, 'Photography Club'),
 	('02-22-2018', 4, 'Photography Club'),
-	('02-20-2018', 1, 'Clothes Club'),
 	('02-27-2018', 2, 'Clothes Club'),
-	('02-15-2018', 3, 'Refined Music People'),
 	('02-17-2018', 4, 'Refined Music People'),
-	('01-22-2018', 5, 'Spiderman Fans'),
 	('01-21-2018', 6, 'Spiderman Fans'),
 	('01-24-2018', 7, 'Spiderman Fans'),
-	('01-22-2018', 8, 'Tech Geeks'),
 	('01-20-2018', 9, 'Tech Geeks'),
 	('01-27-2018', 10, 'Clothes Club'),
 	('01-15-2018', 11, 'Refined Music People'),
@@ -1234,3 +1367,4 @@ firstAndSecondAndThirdMostPopularAdvInYearMonth as
 select *
 from firstAndSecondAndThirdMostPopularAdvInYearMonth;
 
+select * from loanerItem;
