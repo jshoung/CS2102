@@ -54,7 +54,9 @@ create table Report
 	reportee integer,
 	primary key (reportID),
 	foreign key (reporter) references UserAccount (userID) on delete set null,
-	foreign key (reportee) references UserAccount (userID) on delete cascade
+	foreign key (reportee) references UserAccount (userID) on delete cascade,
+	--You cannot report yourself
+	check (reportee != reporter)
 );
 
 create table InterestGroup
@@ -126,7 +128,8 @@ create table InvoicedLoan
 	primary key (invoiceID),
 	foreign key (loanerID)references Loaner (userID) on delete cascade,
 	foreign key (borrowerID) references Borrower (userID) on delete cascade,
-	foreign key (loanerID, itemID) references LoanerItem (userID, itemID) on delete cascade
+	foreign key (loanerID, itemID) references LoanerItem (userID, itemID) on delete cascade,
+	check(startDate <= endDate and loanerID != borrowerID)
 );
 
 --we would like the ratings to be between 0 and 5
@@ -145,7 +148,9 @@ create table UserReviewItem
 	primary key (reviewID),
 	foreign key (userID) references UserAccount (userID) on delete set null,
 	foreign key (itemOwnerID, itemID) references LoanerItem (userID, itemID) on delete cascade,
-	foreign key (invoiceID) references InvoicedLoan (invoiceID) on delete set null
+	foreign key (invoiceID) references InvoicedLoan (invoiceID) on delete set null,
+	--ratings have to be between 0 to 5 inclusive
+	check(0 <= rating and rating <=5 )
 );
 
 --Upvotes
@@ -174,7 +179,8 @@ create table Advertisement
 	itemID integer,
 	primary key (advID),
 	foreign key (advertiser) references Loaner(userID) on delete cascade,
-	foreign key (advertiser, itemID) references LoanerItem(userID, itemID) on delete cascade
+	foreign key (advertiser, itemID) references LoanerItem(userID, itemID) on delete cascade,
+	check(minimumIncrease > 0 and openingDate <= closingDate)
 );
 
 
@@ -201,27 +207,6 @@ create table Chooses
 	foreign key (userID) references Loaner (userID) on delete cascade,
 	foreign key (advID) references Advertisement (advID) on delete cascade
 );
-
-
-create or replace function checkReportYourself()
-returns trigger as
-$$
-	begin
-		if (new.reporter = new.reportee) then
-			raise exception 'You cannot report yourself';
-	return null;
-	else
-	return new;
-	end if;
-	end
-$$
-language plpgsql;
-
-create trigger trig1CheckSelfReport
-before
-update or insert on Report
-for each row
-execute procedure checkReportYourself();
 
 
 create or replace function checkMinimumIncrease()
@@ -385,27 +370,6 @@ for each row
 execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid();
 
 
-create or replace function checkProperRating()
-returns trigger as 
-$$
-	begin
-		if (new.rating < 0 or new.rating > 5) then 
-			raise exception 'ratings have to be between 0 and 5';
-			return null;
-		else
-			return new;
-		end if;
-	end
-$$
-language plpgsql;
-
-create trigger trig1CheckProperRating
-before
-update or insert on UserReviewItem
-for each row
-execute procedure checkProperRating();
-
-
 create or replace function checkReviewAfterLoan()
 returns trigger as 
 $$
@@ -492,94 +456,6 @@ for each row
 execute procedure checkLoanDateClash();
 
 
-create or replace function checkLoanYourOwnItem()
-returns trigger as
-$$
-	begin
-		if (new.loanerID = new.borrowerID) then 
-			raise exception 'You cannot make a loan on your own item';
-	return null;
-	else
-	return new;
-	end if;
-
-end
-$$
-language plpgsql;
-
-create trigger trig1CheckLoanYourOwnItem
-before
-update or insert on InvoicedLoan 
-for each row
-execute procedure checkLoanYourOwnItem();
-
-
-create or replace function checkStartDateEqualsOrAfterEndDate()
-returns trigger as
-$$
-	begin
-		if (new.startDate > new.endDate) then 
-			raise exception 'Start date cannot be after the end date';
-	return null;
-	else
-	return new;
-	end if;
-	
-	end
-$$
-language plpgsql;
-
-create trigger trig2CheckStartAndEndDateOfLoan
-before
-update or insert on InvoicedLoan 
-for each row
-execute procedure checkStartDateEqualsOrAfterEndDate();
-
-
-create or replace function checkOpeningDateEqualsOrAfterClosingDate()
-returns trigger as
-$$
-	begin
-		if (new.openingDate > new.closingDate) then 
-			raise exception 'Opening date cannot be after the closing date';
-	return null;
-	else
-	return new;
-	end if;
-	
-	end
-$$
-language plpgsql;
-
-create trigger trig1CheckStartAndEndDateOfAdvertisement
-before
-update or insert on Advertisement 
-for each row
-execute procedure checkOpeningDateEqualsOrAfterClosingDate();
-
-
-create  or replace function checkMinimumIncreaseIsGreaterThanZero()
-returns trigger as 
-$$
-	begin
-		if (new.minimumIncrease <= 0) then 
-			raise exception 'Minimum Increase of the bid in an advertisement should be greater than zero';
-			return null;
-		else
-		return new;
-		end if;
-	
-	end
-$$
-language plpgsql;
-
-create trigger trig2CheckMinimumIncreaseIsGreaterThanZero
-before
-update or insert on Advertisement
-for each row
-execute procedure checkMinimumIncreaseIsGreaterThanZero();
-
-
 create  or replace function checkNotAlreadyAdvertised()
 returns trigger as 
 $$
@@ -602,7 +478,7 @@ $$
 $$
 language plpgsql;
 
-create trigger trig3CheckNotAlreadyAdvertised
+create trigger trig1CheckNotAlreadyAdvertised
 before
 update or insert on Advertisement
 for each row
@@ -733,7 +609,6 @@ VALUES
 	('Bad negotiator', '02-14-2019', 83, 2),
 	('Not gentleman/gentlewoman', '03-14-2019', 74, 2),
 	( 'No basic respect', '03-29-2019', 25, 2);
-
 
 --5 groups are created, only the first 3 have descriptions.
 INSERT INTO InterestGroup
@@ -1043,6 +918,7 @@ VALUES
 	('02-03-2017', '02-04-2017', 13, 4, 3, 1, 3);
 --date format is month, day, year
 
+
 INSERT INTO UserReviewItem
  	(userID,itemOwnerID,itemID,reviewComment,reviewDate,rating,invoiceID)
 VALUES
@@ -1318,5 +1194,4 @@ firstAndSecondAndThirdMostPopularAdvInYearMonth as
 )
 select *
 from firstAndSecondAndThirdMostPopularAdvInYearMonth;
-
 
