@@ -1,5 +1,5 @@
 const express = require('express')
-const { body, validationResult } = require('express-validator/check')
+const { query, body, validationResult } = require('express-validator/check')
 const bodyParser = require('body-parser')
 const path = require('path')
 const compression = require('compression')
@@ -245,6 +245,28 @@ app.get('/interestgroups', async (req, res) => {
   )
   res.send({ data })
 })
+
+app.get(
+  '/users/interestgroups',
+  [query('userId').isInt()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data = await pool.query(
+      `
+    select groupName, groupDescription, joinDate from 
+      InterestGroup
+      natural join 
+      Joins
+    where userId = $1
+    `,
+      [req.query.userId],
+    )
+    res.send({ data })
+  },
+)
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname + '/client/build/index.html'))
