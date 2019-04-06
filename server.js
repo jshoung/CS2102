@@ -240,8 +240,14 @@ app.get('/users/loans', [body('userId').isInt()], async (req, res) => {
 app.get('/interestgroups', async (req, res) => {
   let data = await pool.query(
     `
-    select groupName, groupDescription from InterestGroup
+    select IG.groupName, groupDescription, J.userId, J.joinDate
+      from InterestGroup IG 
+        left outer join
+        Joins J
+        on J.groupName = IG.groupName and J.userId = $1
+        order by J.groupName
     `,
+    [req.query.userId],
   )
   res.send({ data })
 })

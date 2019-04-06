@@ -84,7 +84,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
             <Card.Footer
               style={{ display: 'flex', justifyContent: 'space-between' }}
             >
-              You joined this group on {parseMDYDate(groupJoinDate)}
+              Joined on {parseMDYDate(groupJoinDate)}
               <Button
                 onClick={() => this.leaveGroup(groupName, userId)}
                 variant="outline-danger"
