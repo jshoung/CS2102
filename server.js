@@ -7,6 +7,7 @@ const morgan = require('morgan')
 const helmet = require('helmet')
 const { Pool } = require('pg')
 const cors = require('cors')
+const moment = require('moment')
 
 const { checkInvoicedLoanSchema } = require('./middleware')
 
@@ -274,8 +275,12 @@ app.get(
   },
 )
 
+// *************************** //
+//            Joins            //
+// *************************** //
+
 app.delete(
-  '/users/interestgroups',
+  '/joins',
   [query('userId').isInt(), query('groupName').isString()],
   async (req, res) => {
     const errors = validationResult(req)
@@ -289,6 +294,34 @@ app.delete(
         `delete from Joins where userId = $1 and groupName = $2
       `,
         [req.query.userId, req.query.groupName],
+      )
+    } catch (error) {
+      return res.status(400).json({ errors: error })
+    }
+    res.send({ data })
+  },
+)
+
+app.post(
+  '/joins',
+  [body('userId').isInt(), body('groupName').isString()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data
+
+    const currentDate = moment().format('MM-DD-YYYY')
+
+    try {
+      data = await pool.query(
+        `INSERT INTO Joins
+        (joinDate, userID, groupname)
+        values 
+        ($1,$2,$3)
+      `,
+        [currentDate, req.body.userId, req.body.groupName],
       )
     } catch (error) {
       return res.status(400).json({ errors: error })
