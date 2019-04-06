@@ -1,3 +1,15 @@
+--Project 
+--Data generated using https://www.generatedata.com/
+
+SELECT
+    table_schema || '.' || table_name
+FROM
+    information_schema.tables
+WHERE
+    table_type = 'BASE TABLE'
+AND
+    table_schema NOT IN ('pg_catalog', 'information_schema');
+
 -- delete tables if already exists
 DROP TABLE IF EXISTS UserAccount
 CASCADE;
@@ -956,9 +968,9 @@ VALUES
  	(46, 4);
 
 
-DROP VIEW IF EXISTS biggestFanAward, worstEnemy, popularAds CASCADE;
+DROP VIEW IF EXISTS biggestFanAward, worstEnemy, popularItem CASCADE;
 
-create view biggestFanAward  (loanerID, borrowerID) as
+create view biggestFanAward  (loanerID, fan) as
 with loanerAdvertisement as
 (
 	select advertiser, advID
@@ -1001,7 +1013,7 @@ select *
 from loanersBorrowersAtLeast90Percent;
 
 
-create view worstEnemy (loanerID, borrowerID) as
+create view worstEnemy (hated, hater) as
 with reportedReporteePairs as 
 (
 	select reportee, reporter
