@@ -65,6 +65,7 @@ create table InterestGroup
 	groupDescription varchar(8000) not null,
 	groupAdminID integer not null,
 	creationDate date not null,
+	lastModifiedBy integer not null,
 	primary key (groupName),
 	foreign key (groupAdminID) references UserAccount (userID) on delete set null
 );
@@ -489,32 +490,6 @@ for each row
 execute procedure checkCreatorCannotLeave();
 
 
-create  or replace function checkJoinDateCannotBeBeforeCreationDate()
-returns trigger as 
-$$
-	declare groupCreationDate date;
-	begin
-		select creationDate
-		into groupCreationDate
-		from InterestGroup 
-		where new.groupName =  groupName;
-		if(new.joinDate < groupCreationDate) then 
-			raise exception 'You cannot join the group before the group has been created';
-			return null;
-		else
-			return new;
-		end if;
-	end
-$$
-language plpgsql;
-
---join date must be after group creation date.
-create trigger trig2CheckJoinDateCannotBeBeforeCreationDate
-before
-insert or update on Joins
-for each row
-execute procedure checkJoinDateCannotBeBeforeCreationDate();
-
 
 create  or replace function checkSuccessorMustBeMember()
 returns trigger as 
@@ -552,13 +527,13 @@ execute procedure checkSuccessorMustBeMember();
 create  or replace function checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate()
 returns trigger as 
 $$
-	declare currentAdminID integer;
+	declare lastModifiedBy integer;
 			currentGroupName varchar(80);
 			currentCreationDate date;
 			currentGroupDescription varchar(8000);
 	begin
 		select groupAdminID
-		into currentAdminID
+		into lastModifiedBy
 		from interestGroup 
 		where groupName = new.groupName;
 	
@@ -581,7 +556,7 @@ $$
 			raise exception 'Creation date should never be changed';
 			return null;
 	
-		elsif(new.groupAdminID != currentAdminID and
+		elsif(new.groupAdminID != lastModifiedBy and
 			(new.groupName != currentGroupName or 
 			 new.groupDescription != currentGroupDescription))then 
 			raise exception 'Only the group admin can make changes to group details';
@@ -601,13 +576,13 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 
 
-drop procedure if exists insertNewBid, insertNewInterestGroup;
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin;
 create or replace procedure insertNewInterestGroup(newGroupName varchar(80),newGroupDescription varchar(8000),newGroupAdminID integer,newCreationDate date)
 as
 $$
 	begin
-		insert into InterestGroup (groupName, groupDescription, groupAdminID, creationDate) values 
-		(newGroupName, newGroupDescription, newGroupAdminID, newCreationDate);
+		insert into InterestGroup (groupName, groupDescription, groupAdminID, creationDate, lastModifiedBy) values 
+		(newGroupName, newGroupDescription, newGroupAdminID, newCreationDate, newGroupAdminID);
 		
 		insert into Joins (joinDate, userID, groupname) values
 		(newCreationDate, newGroupAdminID, newGroupName);
@@ -617,6 +592,19 @@ $$
 $$
 language plpgsql;
 
+create or replace procedure updateInterestGroupAdmin(newGroupName varchar(80),newGroupAdminID integer)
+as
+$$
+	begin
+		update InterestGroup
+		set groupAdminID = newGroupAdminID,
+			lastModifiedBy = newGroupAdminID
+		where groupName = newGroupName;
+		
+	commit;
+	end;
+$$
+language plpgsql;
 
 
 create or replace procedure insertNewBid(newBorrowerID integer,newAdvID integer,newBidDate date,newPrice integer)
@@ -634,7 +622,6 @@ $$
 	end;
 $$
 language plpgsql;
-
 
 
 --userID from 1 to 100 inclusive
@@ -785,7 +772,6 @@ VALUES
 	('01-15-2018', 11, 'Refined Music People'),
 	('01-17-2018', 12, 'Refined Music People'),
 	('04-14-2017', 48, 'Refined Music People');
-
 
 INSERT INTO OrganizedEvent
 	(eventDate,venue,organizer)
@@ -1366,5 +1352,3 @@ firstAndSecondAndThirdMostPopularAdvInYearMonth as
 )
 select *
 from firstAndSecondAndThirdMostPopularAdvInYearMonth;
-
-select * from loanerItem;
