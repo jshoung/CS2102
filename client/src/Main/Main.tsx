@@ -22,6 +22,7 @@ import BrowseItems from '../Components/BrowseItems'
 
 import NavBar from '../Components/NavBar'
 import { parseMDYDate } from '../util/moment'
+import InterestGroups from '../InterestGroups/InterestGroups'
 
 class Main extends Component {
   state = {
@@ -32,6 +33,7 @@ class Main extends Component {
     userItems: [],
     content: [],
     isLoading: false,
+    pageToRender: 'Profile',
   }
 
   async componentDidMount() {
@@ -208,23 +210,11 @@ class Main extends Component {
     this.setState({ selectedTab }, this.loadTabData)
   }
 
-  render() {
-    const {
-      selectedTab,
-      selectedUser,
-      userList,
-      content,
-      isLoading,
-    } = this.state
-
-    return (
-      <>
-        <NavBar selectedUser={selectedUser} userList={userList} />
-        {isLoading ? (
-          <div style={{ textAlign: 'center' }}>
-            <Spinner animation="border" role="status" />
-          </div>
-        ) : (
+  renderPage = (page: string) => {
+    const { selectedTab, selectedUser, content } = this.state
+    switch (page) {
+      case 'Profile':
+        return (
           <Container>
             <Row>
               <Col>
@@ -279,6 +269,46 @@ class Main extends Component {
               </Col>
             </Row>
           </Container>
+        )
+      case 'Interest Groups':
+        return (
+          <InterestGroups
+            selectedUser={this.state.selectedUser}
+            toggleLoading={this.toggleLoading}
+          />
+        )
+      default:
+        return
+    }
+  }
+
+  changePage = (page: string) => {
+    this.setState({ pageToRender: page })
+  }
+
+  render() {
+    const {
+      selectedTab,
+      selectedUser,
+      userList,
+      content,
+      isLoading,
+      pageToRender,
+    } = this.state
+
+    return (
+      <>
+        <NavBar
+          selectedUser={selectedUser}
+          userList={userList}
+          changePage={this.changePage}
+        />
+        {isLoading ? (
+          <div style={{ textAlign: 'center' }}>
+            <Spinner animation="border" role="status" />
+          </div>
+        ) : (
+          this.renderPage(pageToRender)
         )}
       </>
     )

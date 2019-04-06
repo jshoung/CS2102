@@ -282,6 +282,19 @@ app.get(
   },
 )
 
+// *************************** //
+//        Interest Groups      //
+// *************************** //
+
+app.get('/interestgroups', async (req, res) => {
+  let data = await pool.query(
+    `
+    select groupName, groupDescription from InterestGroup
+    `,
+  )
+  res.send({ data })
+})
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname + '/client/build/index.html'))
 })
