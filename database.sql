@@ -173,18 +173,27 @@ create table Upvote
 );
 
 
--- perhaps a trigger can update the highest bidder and the highest bid, after a bid as been made to a adverstisement entry
+-- check startdate cannot clash with current item loans starts, and duration.
+-- new invoicedloans should not clash with ads too in this case
+
+--later the chooses will follow this adveretisement specs, and direct insert into loaner item.
 create table Advertisement
 (
 	advID serial,
 	highestBidder integer,
+	highestBid integer,
 	minimumPrice integer not null,
+	minimumIncrease integer not null,
 	openingDate date not null,
 	closingDate date not null,
-	minimumIncrease integer not null,
-	highestBid integer,
 	advertiser integer,
 	itemID integer,
+	penalty integer not null,  --should follow the loanerItem penalty
+	loanDuration integer not null, --special duration for ad
+	startDate date not null, --special startdate for ads
+	endDate date not null,
+	itemName varchar(100) not null, --by default follows itemName and description in loanersItem
+	itemDescription varchar(8000) not null,
 	primary key (advID),
 	foreign key (advertiser) references Loaner(userID) on delete cascade,
 	foreign key (advertiser, itemID) references LoanerItem(userID, itemID) on delete cascade,
@@ -576,7 +585,33 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 
 
-drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin;
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
+-- CONSTRUCTING THE SPECIAL ADDER.  CONSTRUCT THE CHOOSES. AFTER THAT MUST CONSTRCT ALL THE CHECKS.  check that the loan/ad start and end date must be = loan duration. check startdate must be after advertisement closing date.  also cannot clash.
+-- also two different advertisements have to check against each other, startandenddate.
+create or replace procedure insertNewAdvertisement(newMinimumPrice integer,newOpeningDate date,newClosingDate date,newMinimumIncrease integer,newAdvertiser integer,newItemID integer, newLoanDuration integer, newStartDate date)
+as
+$$
+	declare newPenalty integer;
+			newItemName varchar(100);
+			newItemDescription varchar(8000);
+			newEndDate date;
+			
+	begin
+		newEndDate := newStartDate + interval '1' day * newLoanDuration;
+		select value, itemDescription, itemName
+		into newPenalty, newItemDescription,  newItemName
+		from loanerItem 
+		where newAdvertiser = userID and newItemID = itemID;
+		insert into Advertisement (highestBidder,highestBid,minimumPrice,openingDate,closingDate,minimumIncrease,advertiser,itemID, loanDuration, penalty, startDate, endDate, itemName, itemDescription) values 
+		(null,null,newMinimumPrice,newOpeningDate,newClosingDate,newMinimumIncrease,newAdvertiser,newItemID, newLoanDuration, newPenalty, newStartDate, newEndDate, newItemName, newItemDescription);
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
+
+
 create or replace procedure insertNewInterestGroup(newGroupName varchar(80),newGroupDescription varchar(8000),newGroupAdminID integer,newCreationDate date)
 as
 $$
@@ -989,18 +1024,15 @@ VALUES
 	('Spiderman Movie', 200, 50, 26, 1);
 
 
-INSERT INTO Advertisement
-	(highestBidder,highestBid,minimumPrice,openingDate,closingDate,minimumIncrease,advertiser,itemID)
-VALUES
-	(null, null, 10, '03-01-2019', '05-01-2019', 2, 1, 1),
-	(null, null, 12, '01-04-2019', '07-02-2019', 2, 2, 2),
-	(null, null, 15, '04-02-2019', '05-04-2019', 2, 3, 3),
-	(null, null, 10, '03-01-2019', '05-01-2019', 2, 4, 4),
-	(null, null, 12, '01-04-2019', '07-02-2019', 2, 5, 5),
-	(null, null, 15, '04-02-2019', '05-04-2019', 2, 6, 6),
-	(null, null, 10, '03-01-2019', '05-01-2019', 2, 7, 7),
-	(null, null, 12, '01-04-2019', '07-02-2019', 2, 8, 8),
-	(null, null, 15, '04-02-2019', '05-04-2019', 2, 9, 9);
+call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 1, 1,5,'05-01-2020');
+call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 2, 2,6,'07-02-2020');
+call insertNewAdvertisement(5, '04-02-2019', '05-04-2019', 2, 3, 3,7,'05-04-2020');
+call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 4, 4,5,'05-01-2020');
+call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 5, 5,6,'07-02-2020');
+call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 6, 6,7,'05-04-2020');
+call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 7, 7,5,'05-01-2020');
+call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 8, 8,7,'07-02-2020');
+call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 9, 9,5,'05-04-2020');
 
 	
 call insertNewBid(64, 1,'03-01-2019',10);
