@@ -67,7 +67,8 @@ create table InterestGroup
 	creationDate date not null,
 	lastModifiedBy integer not null,
 	primary key (groupName),
-	foreign key (groupAdminID) references UserAccount (userID) on delete set null
+	foreign key (groupAdminID) references UserAccount (userID) on delete set null,
+	foreign key (lastModifiedBy) references UserAccount (userID) on delete set null
 );
 
 -- (userID, groupName) is the primary key because each user can only join each group once.  
@@ -325,8 +326,8 @@ $$
 		where advID = new.advID;
 	
 		if (new.userID != creatorID) then 
-			raise exception 'creator ID is %', creatorID;
-	raise exception 'You can only choose bids that you created the advertisements for';
+
+			raise exception 'You can only choose bids that you created the advertisements for';
 	return null;
 	elsif new.bidID not in
 	(select bidID
@@ -527,13 +528,13 @@ execute procedure checkSuccessorMustBeMember();
 create  or replace function checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate()
 returns trigger as 
 $$
-	declare lastModifiedBy integer;
+	declare currentAdminID integer;
 			currentGroupName varchar(80);
 			currentCreationDate date;
 			currentGroupDescription varchar(8000);
 	begin
 		select groupAdminID
-		into lastModifiedBy
+		into currentAdminID
 		from interestGroup 
 		where groupName = new.groupName;
 	
@@ -556,9 +557,8 @@ $$
 			raise exception 'Creation date should never be changed';
 			return null;
 	
-		elsif(new.groupAdminID != lastModifiedBy and
-			(new.groupName != currentGroupName or 
-			 new.groupDescription != currentGroupDescription))then 
+		elsif(new.lastModifiedBy != currentAdminID)then 
+			raise notice 'new lastmodifed by is (%)', new.lastModifiedBy;
 			raise exception 'Only the group admin can make changes to group details';
 			return null;
 		else
@@ -583,7 +583,7 @@ $$
 	begin
 		insert into InterestGroup (groupName, groupDescription, groupAdminID, creationDate, lastModifiedBy) values 
 		(newGroupName, newGroupDescription, newGroupAdminID, newCreationDate, newGroupAdminID);
-		
+
 		insert into Joins (joinDate, userID, groupname) values
 		(newCreationDate, newGroupAdminID, newGroupName);
 		
@@ -596,16 +596,19 @@ create or replace procedure updateInterestGroupAdmin(newGroupName varchar(80),ne
 as
 $$
 	begin
+
 		update InterestGroup
-		set groupAdminID = newGroupAdminID,
-			lastModifiedBy = newGroupAdminID
+		set groupAdminID = newGroupAdminID
+		where groupName = newGroupName;
+
+		update InterestGroup
+		set lastModifiedBy = newGroupAdminID
 		where groupName = newGroupName;
 		
 	commit;
 	end;
 $$
 language plpgsql;
-
 
 create or replace procedure insertNewBid(newBorrowerID integer,newAdvID integer,newBidDate date,newPrice integer)
 as
