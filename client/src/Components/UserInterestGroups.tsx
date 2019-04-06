@@ -1,7 +1,7 @@
 import React, { Component } from 'react'
 import * as _ from 'lodash'
 import axios from 'axios'
-import { Col, Row, Card, Container, CardDeck } from 'react-bootstrap'
+import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
 
 import { parseMDYDate } from '../util/moment'
 
@@ -66,10 +66,13 @@ class UserInterestGroups extends Component<MyProps, MyState> {
                   : 'This group likes to be mysterious...'}
               </Card.Text>
             </Card.Body>
-            <Card.Footer>
-              <Card.Text>
-                You joined this group on {parseMDYDate(groupJoinDate)}
-              </Card.Text>
+            <Card.Footer
+              style={{ display: 'flex', justifyContent: 'space-between' }}
+            >
+              You joined this group on {parseMDYDate(groupJoinDate)}
+              <Button variant="outline-danger" size="sm">
+                Leave Group
+              </Button>
             </Card.Footer>
           </Card>
         </CardDeck>
