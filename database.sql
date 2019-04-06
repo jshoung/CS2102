@@ -54,8 +54,7 @@ create table Report
 	reportee integer,
 	primary key (reportID),
 	foreign key (reporter) references UserAccount (userID) on delete set null,
-	foreign key (reportee) references UserAccount (userID) on delete cascade,
-	check (reporter != reportee)
+	foreign key (reportee) references UserAccount (userID) on delete cascade
 );
 
 create table InterestGroup
@@ -105,13 +104,29 @@ create table Borrower
 
 create table LoanerItem
 (
-	itemID serial,
+	itemID serial not null,
 	itemName varchar(80) not null,
 	value integer not null,
 	itemDescription varchar(8000),
 	userID integer,
 	primary key (userID, itemID),
 	foreign key (userID) references Loaner (userID) on delete cascade
+);
+
+create table InvoicedLoan
+(
+	invoiceID serial,
+	startDate date not null,
+	endDate date not null,
+	penalty integer not null,
+	loanFee integer not null,
+	loanerID integer not null,
+	borrowerID integer not null,
+	itemID integer,
+	primary key (invoiceID),
+	foreign key (loanerID)references Loaner (userID) on delete cascade,
+	foreign key (borrowerID) references Borrower (userID) on delete cascade,
+	foreign key (loanerID, itemID) references LoanerItem (userID, itemID) on delete cascade
 );
 
 --we would like the ratings to be between 0 and 5
@@ -121,15 +136,16 @@ create table UserReviewItem
 (
 	reviewID serial,
 	userID integer,
-	itemID integer,
+	itemID integer not null,
 	itemOwnerID integer,
 	reviewComment varchar(1000),
 	reviewDate date not null,
 	rating integer not null,
+	invoiceID integer unique not null,
 	primary key (reviewID),
 	foreign key (userID) references UserAccount (userID) on delete set null,
-	foreign key (itemOwnerID, itemID) references LoanerItem (userID, itemID) on delete cascade
-
+	foreign key (itemOwnerID, itemID) references LoanerItem (userID, itemID) on delete cascade,
+	foreign key (invoiceID) references InvoicedLoan (invoiceID) on delete set null
 );
 
 --Upvotes
@@ -168,6 +184,8 @@ create table Bid
 	price integer not null,
 	borrowerID integer,
 	advID integer,
+	bidDate date not null,
+	validBid boolean default false,
 	primary key (bidID),
 	foreign key (borrowerID) references Borrower (userID) on delete cascade,
 	foreign key (advID) references Advertisement (advID) on delete cascade
@@ -182,23 +200,6 @@ create table Chooses
 	foreign key (bidID) references Bid (bidID) on delete cascade,
 	foreign key (userID) references Loaner (userID) on delete cascade,
 	foreign key (advID) references Advertisement (advID) on delete cascade
-);
-
---currently startdate can be after end date
-create table InvoicedLoan
-(
-	invoiceID serial,
-	startDate date not null,
-	endDate date not null,
-	penalty integer not null,
-	loanFee integer not null,
-	loanerID integer not null,
-	borrowerID integer not null,
-	itemID integer,
-	primary key (invoiceID),
-	foreign key (loanerID)references Loaner (userID) on delete cascade,
-	foreign key (borrowerID) references Borrower (userID) on delete cascade,
-	foreign key (loanerID, itemID) references LoanerItem (userID, itemID) on delete cascade
 );
 
 
@@ -264,27 +265,36 @@ create trigger trig1MinimumBidIncreaseTrig
 before
 update or insert on Bid
 for each row
+when (new.validBid = false)
 execute procedure checkMinimumIncrease();
 
-
-create or replace function updateHighestBidder()
+create or replace function checkBidMadeBetweenAdvOpenAndCloseDate()
 returns trigger as
 $$
+	declare targetAdvOpening date;
+			targetAdvClosing date;
 	begin
-		update Advertisement
-		set highestBid = new.price,
-			highestBidder = new.borrowerID
+		select openingDate, closingDate
+		into targetAdvOpening, targetAdvClosing
+		from advertisement
 		where advID = new.advID;
-		return new;
+
+		if (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
+			raise exception 'You can only bid when the adverisement is open';
+			return null;
+		else 
+			return new;
+		end if;
 	end
 $$
 language plpgsql;
 
-create trigger trig2UpdateHighestBidderTrig
+create trigger trig2CheckBidMadeBetweenAdvOpenAndCloseDate
 before
 update or insert on Bid
 for each row
-execute procedure updateHighestBidder();
+when (new.validBid = false)
+execute procedure checkBidMadeBetweenAdvOpenAndCloseDate();
 
 
 create or replace function checkUnableToBidForYourOwnAdvertisement()
@@ -311,7 +321,31 @@ create trigger trig3CheckUnableToBidForYourOwnAdvertisement
 before
 update or insert on Bid
 for each row
+when (new.validBid = false)
 execute procedure checkUnableToBidForYourOwnAdvertisement();
+
+create or replace function updateHighestBidder()
+returns trigger as
+$$
+	begin
+		insert into Bid (bidID, price, borrowerID, advID, bidDate, validBid) values 
+		(new.bidID, new.price, new.borrowerID, new.advID, new.bidDate, true);
+		
+		update Advertisement
+		set highestBid = new.price,
+			highestBidder = new.borrowerID
+		where advID = new.advID;
+		return null;
+	end
+$$
+language plpgsql;
+
+create trigger trig4UpdateHighestBidderTrig
+before
+update or insert on Bid
+for each row
+when (new.validBid = false)
+execute procedure updateHighestBidder();
 
 
 create or replace function checkChoosesYourOwnAdvertisementAndCorrectBid()
@@ -351,75 +385,79 @@ for each row
 execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid();
 
 
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
+create or replace function checkProperRating()
+returns trigger as 
+$$
+	begin
+		if (new.rating < 0 or new.rating > 5) then 
+			raise exception 'ratings have to be between 0 and 5';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
 
--- Commenting this out for now since it's gonna be changed
-
-
--- --should only be able to review AFTER you have made a loan
--- create or replace function checkReviewAfterLoan
--- ()
--- returns trigger as 
--- $$
--- declare earliestLoanDate date;
--- begin
--- 	select min(startDate)
--- 	into earliestLoanDate
--- 	from InvoicedLoan
--- 	where new.userID = borrowerID and new.itemOwnerID = loanerID and new.itemID = itemID;
-
--- 	if (earliestLoanDate is null or earliestLoanDate > new.reviewDate) then 
--- 		raise exception 'You have to use the item first before reviewing it';
--- 	return null;
--- 	else
--- 	return new;
--- end
--- if;
--- end
--- $$
--- language plpgsql;
-
--- create trigger trig1CheckReviewAfterLoan
--- before
--- update or insert on UserReviewItem
--- for each row
--- execute procedure checkReviewAfterLoan
--- ();
+create trigger trig1CheckProperRating
+before
+update or insert on UserReviewItem
+for each row
+execute procedure checkProperRating();
 
 
--- create or replace function checkProperRating
--- ()
--- returns trigger as 
--- $$
--- begin
--- 	if (new.rating < 0 or new.rating > 5) then 
--- 		raise exception 'ratings have to be between 0 and 5';
--- return null;
--- else
--- return new;
--- end
--- if;
--- end
--- $$
--- language plpgsql;
+create or replace function checkReviewAfterLoan()
+returns trigger as 
+$$
+	declare invoiceDate date;
+	begin
+		select startdate
+		into invoiceDate
+		from invoicedLoan
+		where invoiceID = new.invoiceID;
+	
+		if (new.reviewDate < invoiceDate) then 
+			raise exception 'Reviews cannot be written before the loan begins';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
 
--- create trigger trig2CheckProperRating
--- before
--- update or insert on UserReviewItem
--- for each row
--- execute procedure checkProperRating
--- ();
+create trigger trig2CheckReviewAfterLoan
+before
+update or insert on UserReviewItem
+for each row
+execute procedure checkReviewAfterLoan();
 
 
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
+create or replace function checkReviewYourOwnInvoice()
+returns trigger as 
+$$
+	declare invoiceOwner integer;
+	begin
+		select borrowerID
+		into invoiceOwner
+		from invoicedLoan
+		where invoiceID = new.invoiceID;
+	
+		if (new.userID != invoiceOwner) then 
+			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig3CheckReviewYourOwnInvoice
+before
+update or insert on UserReviewItem
+for each row
+execute procedure checkReviewYourOwnInvoice();
 
 
 create or replace function checkLoanDateClash()
@@ -542,7 +580,33 @@ for each row
 execute procedure checkMinimumIncreaseIsGreaterThanZero();
 
 
+create  or replace function checkNotAlreadyAdvertised()
+returns trigger as 
+$$
+	begin
+		if(select max(advID)
+		from advertisement
+		where new.openingDate >= openingDate and new.openingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid) is not null then 
+			raise exception  'You cannot advertise an item that is currently already being advertised';
+			return null;
+		elsif(select max(advID)
+			from advertisement
+			where new.closingDate >= openingDate and new.closingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid) is not null then 
+			raise exception 'You cannot advertise an item that is currently already being advertised';
+			return null;
+		else
+		return new;
+		end if;
+	
+	end
+$$
+language plpgsql;
 
+create trigger trig3CheckNotAlreadyAdvertised
+before
+update or insert on Advertisement
+for each row
+execute procedure checkNotAlreadyAdvertised();
 
 
 
@@ -704,7 +768,8 @@ VALUES
 	('01-20-2018', 9, 'Tech Geeks'),
 	('01-27-2018', 10, 'Clothes Club'),
 	('01-15-2018', 11, 'Refined Music People'),
-	('01-17-2018', 12, 'Refined Music People');
+	('01-17-2018', 12, 'Refined Music People'),
+	('04-14-2017', 48, 'Refined Music People');
 
 
 INSERT INTO OrganizedEvent
@@ -835,7 +900,8 @@ VALUES
 	(97),
 	(98),
 	(99),
-	(100);
+	(100),
+	(1);
 
 --LoanerItem current set as each loaner has 1 item on loan.  ItemID ranges from 100 to 149 inclusive
 -- The first 10 items have an item description
@@ -905,95 +971,352 @@ INSERT INTO Advertisement
 VALUES
 	(null, null, 10, '03-01-2019', '05-01-2019', 2, 1, 1),
 	(null, null, 12, '01-04-2019', '07-02-2019', 2, 2, 2),
-	(null, null, 15, '04-02-2019', '05-04-2019', 2, 3, 3);
+	(null, null, 15, '04-02-2019', '05-04-2019', 2, 3, 3),
+	(null, null, 10, '03-01-2019', '05-01-2019', 2, 4, 4),
+	(null, null, 12, '01-04-2019', '07-02-2019', 2, 5, 5),
+	(null, null, 15, '04-02-2019', '05-04-2019', 2, 6, 6),
+	(null, null, 10, '03-01-2019', '05-01-2019', 2, 7, 7),
+	(null, null, 12, '01-04-2019', '07-02-2019', 2, 8, 8),
+	(null, null, 15, '04-02-2019', '05-04-2019', 2, 9, 9);
 
 INSERT INTO Bid
-	(borrowerID,advID,price)
+	(borrowerID,advID,bidDate,price)
 VALUES
-	(64, 1, 10),
-	(85, 1, 12),
-	(76, 1, 14),
-	(57, 2, 12);
-
+	(64, 1,'03-01-2019',10),
+	(49, 1,'03-02-2019', 12),
+	(85, 1,'03-03-2019',14),
+	(76, 1,'03-04-2019', 16),
+	(57, 2,'01-04-2019', 12),
+	(64, 3,'04-02-2019', 15),
+	(49, 3,'05-03-2019', 17),
+	(85, 3,'05-04-2019',19),
+	(85, 4,'03-01-2019', 14),
+	(76, 4,'03-02-2019', 16),
+	(76, 5,'01-04-2019', 18),
+	(64, 5,'02-04-2019', 20),
+	(57, 6,'04-02-2019', 15),
+	(49, 6,'04-03-2019', 17),
+	(57, 6,'04-03-2019', 19),
+	(64, 7,'03-01-2019', 10),
+	(49, 7,'04-02-2019', 12),
+	(57, 7,'04-02-2019', 14),
+	(85, 8,'02-04-2019', 12),
+	(76, 9,'05-02-2019',16);
+	
+	
+	
+	
 
 INSERT INTO Chooses
 	(bidID,userID,advID)
 VALUES
-	(4, 2, 2);
-
+	(5, 2, 2);
 
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 + 15 invoicedLoans.  The later 15 have reviews tagged to them
-
+INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) VALUES ('02-19-2018','10-16-2018',14,2,1,41,1),('02-14-2019','02-27-2019',15,6,2,42,2),('07-31-2018','08-19-2018',11,2,3,43,3),('05-31-2018','06-01-2018',12,5,4,44,4),('10-17-2018','10-30-2018',12,9,5,45,5),('01-14-2018','07-14-2018',17,5,6,46,6),('05-21-2019','05-26-2019',10,3,7,47,7),('10-04-2018','10-10-2018',19,3,8,48,8),('01-14-2019','08-26-2019',14,2,9,49,9),('05-05-2018','09-16-2018',14,7,10,50,10);
+INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) VALUES ('04-24-2018','06-07-2018',13,4,11,51,11),('10-08-2018','12-15-2019',13,8,12,52,12),('11-01-2019','02-29-2020',19,2,13,53,13),('01-24-2019','06-16-2019',10,7,14,54,14),('07-30-2017','05-13-2018',19,3,15,55,15),('04-18-2018','05-14-2018',15,6,16,56,16),('09-19-2018','10-12-2018',19,5,17,57,17),('10-07-2018','01-05-2019',16,2,18,58,18),('06-09-2018','06-06-2019',13,8,19,59,19),('09-09-2019','10-13-2019',12,8,20,60,20);
+INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) VALUES ('10-06-2018','10-11-2018',19,9,21,61,21),('03-10-2018','06-11-2018',19,5,22,62,22),('07-07-2018','08-02-2019',10,7,23,63,23),('09-09-2018','05-13-2019',16,10,24,64,24),('04-28-2018','07-22-2018',14,8,25,65,25),('09-04-2018','11-08-2018',11,9,26,66,26),('06-20-2018','07-22-2019',18,9,27,67,27),('04-12-2018','12-28-2018',13,7,28,68,28),('03-31-2018','05-12-2018',16,7,29,69,29),('05-20-2018','02-13-2019',15,5,30,70,30);
+INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) VALUES ('02-09-2018','09-10-2018',10,3,31,71,31),('03-27-2018','07-10-2018',16,2,32,72,32),('10-29-2017','04-01-2018',10,9,33,73,33),('07-24-2019','07-28-2019',17,6,34,74,34),('09-24-2017','05-30-2018',10,3,35,75,35),('12-08-2019','02-18-2020',16,9,36,76,36),('01-18-2019','02-10-2020',16,5,37,77,37),('06-09-2018','07-25-2018',10,3,38,78,38),('07-24-2018','08-08-2019',10,8,39,79,39),('12-08-2019','01-05-2020',13,7,40,80,40);
 INSERT INTO InvoicedLoan
-	(startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID)
+	(startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID)
 VALUES
-	('02-14-2019', '06-27-2019', 15, 6, 1, 42, 201, 1),
-	('07-31-2018', '11-19-2018', 11, 2, 2, 43, 202, 2),
-	('05-31-2018', '03-26-2019', 12, 5, 3, 44, 203, 3),
-	('10-17-2018', '09-30-2019', 12, 9, 4, 45, 204, 4),
-	('01-14-2018', '07-14-2018', 17, 5, 5, 46, 205, 5),
-	('05-21-2019', '03-26-2020', 10, 3, 6, 47, 206, 6),
-	('10-04-2018', '10-10-2018', 19, 3, 7, 48, 207, 7),
-	('01-14-2019', '08-26-2019', 14, 2, 8, 49, 208, 8),
-	('05-05-2018', '09-16-2018', 14, 7, 9, 50, 209, 9);
+	('02-14-2019', '02-27-2019', 15, 6, 1, 42, 1),
+	('07-31-2018', '11-19-2018', 11, 2, 2, 43, 2),
+	('05-31-2018', '06-02-2018', 12, 5, 3, 44, 3),
+	('10-17-2018', '10-18-2018', 12, 9, 4, 45, 4),
+	('01-14-2018', '02-14-2018', 17, 5, 1, 46, 1),
+	('06-21-2019', '06-26-2019', 10, 3, 2, 47, 2),
+	('10-04-2018', '10-10-2018', 19, 3, 3, 48, 3),
+	('01-14-2019', '01-26-2019', 14, 2, 1, 49, 1),
+	('05-05-2018', '06-16-2018', 14, 7, 2, 50, 2),
+	('04-24-2018', '04-25-2018', 12, 5, 3, 51, 3),
+	('09-17-2019', '09-30-2019', 12, 9, 1, 52, 1),
+	('02-14-2018', '03-14-2018', 17, 5, 2, 53, 2),
+	('03-10-2018', '03-13-2018', 10, 3, 3, 54, 3),
+	('09-10-2019', '10-10-2019', 19, 3, 1, 55, 1),
+	('08-14-2019', '08-26-2019', 14, 2, 2, 56, 2),
+	('09-05-2018', '09-16-2018', 14, 7, 3, 57, 3),
+	('02-05-2018', '02-06-2018', 14, 7, 2, 57, 2),
+	('07-10-2019', '07-10-2019', 19, 3, 1, 64, 1),
+	('02-03-2017', '02-04-2017', 13, 4, 3, 1, 3);
 --date format is month, day, year
 
+INSERT INTO UserReviewItem
+ 	(userID,itemOwnerID,itemID,reviewComment,reviewDate,rating,invoiceID)
+VALUES
+ 	(42, 1,1, 'Enjoyable camera to use!  I really like it.', '02-17-2019', 5,41),
+ 	(43, 2,2, 'This iPad was not working properly when I got it', '01-12-2019', 1,42),
+ 	(44, 1,1, 'This is not as good as the other cameras I used', '02-19-2019', 2,43),
+ 	(1, 3, 3, 'This Toshiba laptop is an ancient beauty','06-02-2017', 5,59);
+
+ 
+INSERT INTO UserReviewItem
+ 	(userID,itemOwnerID,itemID,reviewDate,rating,invoiceID)
+VALUES
+ 	(46, 1,1, '01-17-2019', 2,45),
+ 	(47, 2,2, '10-12-2019', 4,46),
+ 	(48, 3,3, '02-19-2019', 1,47),
+ 	(49, 1,1, '01-17-2019', 4,48),
+ 	(50, 2,2, '01-12-2019', 1,49),
+ 	(51, 3,3, '02-19-2019', 5,50),
+ 	(52, 1,1, '10-17-2019', 1,51),
+ 	(53, 2,2, '10-12-2019', 4,52),
+ 	(54, 3,3, '02-19-2019', 3,53),
+ 	(55, 1,1, '12-17-2019', 1,54),
+ 	(56, 2,2, '09-12-2019', 2,55),
+ 	(57, 3,3, '10-19-2019', 5,56),
+ 	(44, 4,4, '05-31-2018', 4,4),
+ 	(45, 5,5, '10-17-2018', 4,5),
+ 	(46, 6,6, '05-31-2018', 4,6),
+ 	(47, 7,7, '05-23-2019', 4,7),
+ 	(48, 8,8, '10-10-2018', 4,8),
+ 	(49, 9,9, '01-31-2019', 4,9);
+
+ 
+INSERT INTO Upvote
+ 	(userID,reviewID)
+VALUES
+ 	(74, 1),
+ 	(51, 2),
+ 	(56, 3),
+ 	(61, 4),
+ 	(71, 5),
+ 	(86, 6),
+ 	(95, 7),
+ 	(10, 8),
+ 	(16, 9),
+ 	(41, 10),
+ 	(43, 1),
+ 	(94, 1),
+ 	(46, 4);
 
 
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
+DROP VIEW IF EXISTS biggestFanAward, worstEnemy, popularAds CASCADE;
 
--- Commenting this out for now since it's gonna be changed
+create view biggestFanAward  (loanerID, borrowerID) as
+with loanerAdvertisement as
+(
+	select advertiser, advID
+	from Advertisement
+),
+advertisementBidders as 
+(
+	select advID, borrowerID as bidder
+	from Bid
+),
+loanerBidder as 
+(
+	select distinct advertiser as loaner, bidder
+	from loanerAdvertisement as la inner join advertisementBidders as ab 
+	on la.advID = ab.advID
+),
+loanersDistinctItems as 
+(
+	select userID as loanerID, count(itemID) as distinctItems
+	from loanerItem
+	group by userID
+),
+loanersBorrowersOfDistinctItems as 
+(
+	select borrowerID, loanerID, count(itemID) as numItemsBorrowed
+	from invoicedLoan
+	group by loanerID,  itemID, borrowerid
+),
+loanersBorrowersAtLeast90Percent as 
+(
+	select ld.loanerID, borrowerID
+	from loanersDistinctItems as ld inner join loanersBorrowersOfDistinctItems as lb  
+		on ld.loanerID = lb.loanerID
+	where numItemsBorrowed  >= (0.9 * distinctItems)
+)
+select *
+from loanerBidder
+intersect
+select * 
+from loanersBorrowersAtLeast90Percent;
 
 
---User review item
--- INSERT INTO UserReviewItem
--- 	(userID,itemOwnerID,reviewComment,reviewDate,rating)
--- VALUES
--- 	(58, 11, 'Enjoyable camera to use!  I really like it.', '01-17-2019', 5),
--- 	(59, 22, 'This iPad was not working properly when I got it', '01-12-2019', 1),
--- 	(60, 21, 'This is not as good as the other cameras I used', '02-19-2019', 2);
+create view worstEnemy (loanerID, borrowerID) as
+with reportedReporteePairs as 
+(
+	select reportee, reporter
+	from Report
+),
+revieweeReviewerPairsWhereAvgRatingAtMost2 as 
+(
+	select itemOwnerID as reviewee, userID as reviewer, avg(rating) as avgRating
+	from UserReviewItem
+	group by itemOwnerID, userID
+	having avg(rating) <= 2
+),
+upvoteeUpvoterPair as 
+(
+	select distinct uri.userID as upvotee, u.userID as upvoter
+	from Upvote as u inner join userReviewItem as uri 
+		on u.reviewID = uri.reviewID
+),
+similarInterestGroupPairs as 
+(
+	select j1.userID as user1, j2.userID as user2
+	from joins as j1 inner join joins as j2 
+		on j1.groupName = j2.groupName
+),
+revieweeReviewerPairsWithNoUpvote as 
+(
+	select *
+	from revieweeReviewerPairsWhereAvgRatingAtMost2
+	where (reviewee,reviewer) not in 
+		(
+			select upvotee as reviewee, upvoter as reviewer 
+			from upvoteeUpvoterPair
+		)
+),
+revieweeReviewerPairsWithNoUpvoteAndNoInterest as 
+(
+	select *
+	from revieweeReviewerPairsWithNoUpvote
+	where (reviewee,reviewer) not in 
+		(
+			select user1 as reviewee, user2 as reviewer 
+			from similarInterestGroupPairs
+		)
+),
+revieweeLowestAvgScore as 
+(
+	select reviewee, min(avgRating) as avgRating
+	from revieweeReviewerPairsWithNoUpvoteAndNoInterest
+	group by reviewee 
+)
+select distinct rlow.reviewee as hated, reviewer as hater
+from revieweeLowestAvgScore as rlow inner join revieweeReviewerPairsWithNoUpvoteAndNoInterest as rui
+	on rlow.reviewee = rui.reviewee and rlow.avgRating = rui.avgRating;
 
--- INSERT INTO UserReviewItem
--- 	(userID,itemOwnerID,reviewDate,rating)
--- VALUES
--- 	(46, 11, '01-17-2019', 2),
--- 	(47, 22, '01-12-2019', 4),
--- 	(48, 21, '02-19-2019', 1),
--- 	(49, 11, '01-17-2019', 4),
--- 	(50, 22, '01-12-2019', 1),
--- 	(51, 21, '02-19-2019', 5),
--- 	(52, 11, '01-17-2019', 1),
--- 	(53, 22, '01-12-2019', 4),
--- 	(54, 21, '02-19-2019', 3),
--- 	(55, 11, '01-17-2019', 1),
--- 	(56, 22, '01-12-2019', 2),
--- 	(57, 21, '02-19-2019', 5);
 
--- INSERT INTO Upvote
--- 	(userID,reviewID)
--- VALUES
--- 	(74, 1),
--- 	(51, 2),
--- 	(56, 3),
--- 	(61, 4),
--- 	(71, 5),
--- 	(86, 6),
--- 	(95, 7),
--- 	(10, 8),
--- 	(16, 9),
--- 	(41, 10),
--- 	(43, 1),
--- 	(94, 1);
 
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------
+
+create view popularItem (month, year, mostPopularItem, secondMostPopularItem, thirdMostPopularItem) as
+with advertisementNumBid as 
+(
+	select adv.advID, count(borrowerID)
+	from advertisement as adv inner join bid
+		on adv.advid = bid.advid
+	group by adv.advID
+),
+bidForAdvMonthAndYear as 
+(
+	select bidID, advID, 
+		extract(month from bidDate) as bidMonth, 
+		extract(year from bidDate) as bidYear
+	from Bid
+),
+advBidMonthAndYearCount as 
+(
+	select advID, count(bidID) as numBids, bidMonth, bidYear
+	from bidForAdvMonthAndYear
+	group by advID, bidMonth, bidYear
+),
+itemAvgRating as 
+(
+	select itemOwnerID, itemID, avg(rating) as avgRating
+	from userReviewItem 
+	group by itemOwnerID, itemID
+),
+itemAvgRatingAtLeast3 as 
+(
+	select * 
+	from itemAvgRating
+	where avgRating >= 3
+),
+advBidMonthAndYearCountAndItemAdvertiserID as 
+(
+	select ab.advID, numBids, ab.bidMonth, ab.bidYear, advertiser, itemID
+	from advBidMonthAndYearCount as ab inner join advertisement as ad  
+		on ab.advID = ad.advID
+),
+advBidMonthAndYearCountAbove3 as 
+(
+	select advID, numBids, bidMonth, bidYear
+	from advBidMonthAndYearCountAndItemAdvertiserID
+	where (advertiser, itemID) in 
+		(
+			select itemOwnerID as advertiser, itemID 
+			from itemAvgRatingAtLeast3
+		)
+),
+mostPopularNumBidsInYearMonth as 
+(
+	select bidMonth, bidYear, max(numBids) as numBids
+	from advBidMonthAndYearCountAbove3
+	group by bidMonth, bidYear
+),
+mostPopularAdvInYearMonth as 
+(
+	select distinct ac.bidMonth, ac.bidYear, min(advID) as advID
+	from advBidMonthAndYearCountAbove3 as ac inner join mostPopularNumBidsInYearMonth as mm
+		on ac.numBids = mm.numBids and ac.bidmonth = mm.bidMonth and ac.bidYear = mm.bidYear
+	group by ac.bidMonth, ac.bidYear
+),
+advBidMonthAndYearCountMinusMostPopular as 
+(
+	select *
+	from advBidMonthAndYearCountAbove3
+	where (advID,bidMonth, bidYear) not in 
+		(
+			select advID, bidMonth, bidYear
+			from mostPopularAdvInYearMonth
+		)
+),
+secondMostPopularNumBidsInYearMonth as 
+(
+	select bidMonth, bidYear, max(numBids) as numBids
+	from advBidMonthAndYearCountMinusMostPopular
+	group by bidMonth, bidYear
+),
+secondMostPopularAdvInYearMonth as 
+(
+	select distinct ac.bidMonth, ac.bidYear, min(advID) as advID
+	from secondMostPopularNumBidsInYearMonth as ac inner join advBidMonthAndYearCountMinusMostPopular as mm
+		on ac.numBids = mm.numBids and ac.bidmonth = mm.bidMonth and ac.bidYear = mm.bidYear
+	group by ac.bidMonth, ac.bidYear
+),
+advBidMonthAndYearCountMinusSecondMostPopular as 
+(
+	select *
+	from advBidMonthAndYearCountMinusMostPopular
+	where (advID,bidMonth, bidYear) not in 
+		(
+			select advID, bidMonth, bidYear
+			from secondMostPopularAdvInYearMonth
+		)
+),
+thirdMostPopularNumBidsInYearMonth as 
+(
+	select bidMonth, bidYear, max(numBids) as numBids
+	from advBidMonthAndYearCountMinusSecondMostPopular
+	group by bidMonth, bidYear
+),
+thirdMostPopularAdvInYearMonth as 
+(
+	select distinct ac.bidMonth, ac.bidYear, min(advID) as advID
+	from thirdMostPopularNumBidsInYearMonth as ac inner join advBidMonthAndYearCountMinusSecondMostPopular as mm
+		on ac.numBids = mm.numBids and ac.bidmonth = mm.bidMonth and ac.bidYear = mm.bidYear
+	group by ac.bidMonth, ac.bidYear
+),
+firstAndSecondMostPopularAdvInYearMonth as 
+(
+	select fm.bidMonth, fm.bidYear, fm.advID, sm.advID as advID2
+	from mostPopularAdvInYearMonth as fm left join secondMostPopularAdvInYearMonth as sm 
+		on fm.bidMonth = sm.bidMonth and fm.bidYear = sm.bidYear
+),
+firstAndSecondAndThirdMostPopularAdvInYearMonth as 
+(
+	select fm.bidMonth, fm.bidYear, fm.advID, fm.advID2, sm.advID as advID3
+	from firstAndSecondMostPopularAdvInYearMonth as fm left join thirdMostPopularAdvInYearMonth as sm 
+		on fm.bidMonth = sm.bidMonth and fm.bidYear = sm.bidYear
+)
+select *
+from firstAndSecondAndThirdMostPopularAdvInYearMonth;
+
 
