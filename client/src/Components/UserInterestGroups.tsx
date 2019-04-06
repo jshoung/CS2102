@@ -15,7 +15,7 @@ interface MyState {
   userId: string
 }
 
-class InterestGroups extends Component<MyProps, MyState> {
+class UserInterestGroups extends Component<MyProps, MyState> {
   constructor(props: any) {
     super(props)
     this.state = {
@@ -30,39 +30,38 @@ class InterestGroups extends Component<MyProps, MyState> {
 
   async fetchInterestGroups() {
     const { selectedUser } = this.props
-    const selectedUserId = _.get(selectedUser, 'userId')
-    const { data } = await axios.get(`/interestgroups`, {
+    const userId = _.get(selectedUser, 'userId')
+
+    const { data } = await axios.get('/users/interestgroups', {
       params: {
-        userId: selectedUserId,
+        userId,
       },
     })
 
     this.setState({
       ...data,
-      userId: selectedUserId,
+      userId,
     })
   }
 
-  async joinInterestGroup(userId: string, groupName: string) {
-    await axios.post('/joins', {
-      userId,
-      groupName,
+  async leaveGroup(groupName: string, userId: string) {
+    await axios.delete('/joins', {
+      params: {
+        userId,
+        groupName,
+      },
     })
 
     this.fetchInterestGroups()
   }
 
-  renderInterestGroups(groupList: any) {
+  renderUserInterestGroups(groupList: any) {
     const { selectedUser } = this.props
-    const selectedUserId = _.get(selectedUser, 'userId')
-    if (selectedUserId != this.state.userId) {
-      this.fetchInterestGroups()
-    }
+    const userId = _.get(selectedUser, 'userId')
 
     return groupList.map((row: any) => {
       const groupName = _.get(row, 'groupname')
       const groupDescription = _.get(row, 'groupdescription')
-      const userId = _.get(row, 'userid')
       const groupJoinDate = _.get(row, 'joindate')
 
       return (
@@ -82,20 +81,17 @@ class InterestGroups extends Component<MyProps, MyState> {
                   : 'This group likes to be mysterious...'}
               </Card.Text>
             </Card.Body>
-            <Card.Footer>
-              {userId === selectedUserId ? (
-                `Joined on ${parseMDYLongDate(groupJoinDate)}`
-              ) : (
-                <Button
-                  onClick={() => {
-                    this.joinInterestGroup(selectedUserId, groupName)
-                  }}
-                  variant="light"
-                  size="sm"
-                >
-                  Join Group
-                </Button>
-              )}
+            <Card.Footer
+              style={{ display: 'flex', justifyContent: 'space-between' }}
+            >
+              Joined on {parseMDYLongDate(groupJoinDate)}
+              <Button
+                onClick={() => this.leaveGroup(groupName, userId)}
+                variant="outline-danger"
+                size="sm"
+              >
+                Leave Group
+              </Button>
             </Card.Footer>
           </Card>
         </CardDeck>
@@ -108,14 +104,19 @@ class InterestGroups extends Component<MyProps, MyState> {
     const userId = _.get(selectedUser, 'userId')
     const { rows } = this.state.data
 
+    // Hack to ensure data is updated when changing users
+    if (userId != this.state.userId) {
+      this.fetchInterestGroups()
+    }
+
     return (
       <Container>
         <Row style={{ paddingBottom: '20px' }}>
-          <Col>{this.renderInterestGroups(rows)}</Col>
+          <Col>{this.renderUserInterestGroups(rows)}</Col>
         </Row>
       </Container>
     )
   }
 }
 
-export default InterestGroups
+export default UserInterestGroups
