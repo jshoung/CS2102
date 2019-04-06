@@ -25,10 +25,10 @@ class UserInterestGroups extends Component<MyProps, MyState> {
   }
 
   async componentDidMount() {
-    await this.fetchBorrowedItems()
+    await this.fetchInterestGroups()
   }
 
-  async fetchBorrowedItems() {
+  async fetchInterestGroups() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
 
@@ -40,10 +40,25 @@ class UserInterestGroups extends Component<MyProps, MyState> {
 
     this.setState({
       ...data,
+      userId,
     })
   }
 
+  async leaveGroup(groupName: string, userId: string) {
+    await axios.delete('/users/interestgroups', {
+      params: {
+        userId,
+        groupName,
+      },
+    })
+
+    this.fetchInterestGroups()
+  }
+
   renderUserInterestGroups(groupList: any) {
+    const { selectedUser } = this.props
+    const userId = _.get(selectedUser, 'userId')
+
     return groupList.map((row: any) => {
       const groupName = _.get(row, 'groupname')
       const groupDescription = _.get(row, 'groupdescription')
@@ -70,7 +85,11 @@ class UserInterestGroups extends Component<MyProps, MyState> {
               style={{ display: 'flex', justifyContent: 'space-between' }}
             >
               You joined this group on {parseMDYDate(groupJoinDate)}
-              <Button variant="outline-danger" size="sm">
+              <Button
+                onClick={() => this.leaveGroup(groupName, userId)}
+                variant="outline-danger"
+                size="sm"
+              >
                 Leave Group
               </Button>
             </Card.Footer>
@@ -87,7 +106,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
 
     // Hack to ensure data is updated when changing users
     if (userId != this.state.userId) {
-      this.fetchBorrowedItems()
+      this.fetchInterestGroups()
     }
 
     return (

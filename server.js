@@ -268,6 +268,33 @@ app.get(
   },
 )
 
+app.delete(
+  '/users/interestgroups',
+  [query('userId').isInt(), query('groupName').isString()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data
+
+    try {
+      data = await pool.query(
+        `delete from Joins where userId = $1 and groupName = $2
+      `,
+        [req.query.userId, req.query.groupName],
+      )
+    } catch (error) {
+      return res.status(400).json({ errors: error })
+    }
+    res.send({ data })
+  },
+)
+
+// *************************** //
+//        Miscellaneous        //
+// *************************** //
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname + '/client/build/index.html'))
 })
