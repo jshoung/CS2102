@@ -275,6 +275,30 @@ app.get(
   },
 )
 
+app.post(
+  '/interestgroups',
+  [
+    body('groupDescription').isString(),
+    body('groupName').isString(),
+    body('userId').isInt(),
+  ],
+  async (req, res) => {
+    const currentDate = moment().format('MM-DD-YYYY')
+    let data = await pool.query(
+      `
+      call insertNewInterestGroup($1, $2, $3, $4)
+    `,
+      [
+        req.body.groupName,
+        req.body.groupDescription,
+        req.body.userId,
+        currentDate,
+      ],
+    )
+    res.send({ data })
+  },
+)
+
 // *************************** //
 //            Joins            //
 // *************************** //
