@@ -627,6 +627,28 @@ $$
 language plpgsql;
 
 
+create or replace procedure insertNewInvoicedLoan(newStartDate date, newLoanerID integer,newBorrowerID integer,newItemID integer)
+as
+$$
+	declare newEndDate date;
+			newPenalty integer;
+			newLoanFee integer;
+			currentLoanDuration integer;
+	begin	
+		select value, loanFee, loanDuration
+		into newPenalty, newLoanFee, currentLoanDuration
+		from loanerItem
+		where newLoanerID = userID and newItemID = itemID;
+		
+		newEndDate := newStartDate + interval '1' day * currentLoanDuration;
+		insert into invoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) values 
+		(newStartDate, newEndDate, newPenalty, newLoanFee, newLoanerID, newBorrowerID, newItemID);
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
 --userID from 1 to 100 inclusive
 INSERT INTO UserAccount
 	(name,address)
@@ -1011,72 +1033,68 @@ VALUES
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 + 15 invoicedLoans.  The later 15 have reviews tagged to them
-INSERT INTO InvoicedLoan 
-	(startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) 
-VALUES 
-	('02-19-2018','02-24-2018',500,50,1,41,1),
-	('02-14-2019','02-16-2019',200,40,2,42,2),
-	('07-31-2018','08-01-2018',600,10,3,43,3),
-	('05-31-2018','06-03-2018',300,30,4,44,4),
-	('10-17-2018','10-22-2018',900,50,5,45,5),
-	('01-14-2018','01-15-2018',400,10,6,46,6),
-	('05-21-2019','05-23-2019',200,0,7,47,7),
-	('10-04-2018','10-07-2018',100,5,8,48,8),
-	('01-14-2019','01-24-2019',100,1,9,49,9),
-	('05-05-2018','05-08-2018',60,2,10,50,10),
-	('04-24-2018','04-26-2018',100,10,11,51,11),
-	('10-08-2018','10-14-2018',900,100,12,52,12),
-	('11-01-2019','11-03-2019',100,50,13,53,13),
-	('01-24-2019','01-29-2019',900,50,14,54,14),
-	('07-30-2017','08-04-2017',600,30,15,55,15),
-	('04-18-2018','04-25-2018',700,50,16,56,16),
-	('09-19-2018','09-24-2018',100,2,17,57,17),
-	('10-07-2018','10-08-2018',100,0,18,58,18),
-	('06-09-2018','06-16-2018',500,5,19,59,19),
-	('09-09-2019','09-14-2019',700,10,20,60,20),
-	('10-06-2018','10-09-2018',100,10,21,61,21),
-	('03-10-2018','03-14-2018',500,50,22,62,22),
-	('07-07-2018','07-10-2018',200,30,23,63,23),
-	('09-09-2018','09-14-2018',800,40,24,64,24),
-	('04-28-2018','05-01-2018',700,65,25,65,25),
-	('09-04-2018','09-05-2018',700,10,26,66,26),
-	('06-20-2018','06-22-2018',400,3,27,67,27),
-	('04-12-2018','04-15-2018',100,12,28,68,28),
-	('03-31-2018','04-03-2018',700,30,29,69,29),
-	('05-20-2018','05-22-2018',500,5,30,70,30),
-	('02-09-2018','02-14-2018',500,50,31,71,31),
-	('03-27-2018','04-04-2018',700,100,32,72,32),
-	('10-29-2017','11-01-2017',200,20,33,73,33),
-	('07-24-2019','07-28-2019',800,55,34,74,34),
-	('09-24-2017','09-26-2017',900,56,35,75,35),
-	('12-08-2019','12-14-2019',700,52,36,76,36),
-	('01-18-2019','01-19-2019',600,0,37,77,37),
-	('06-09-2018','06-11-2018',500,0,38,78,38),
-	('07-24-2018','07-26-2018',400,31,39,79,39),
-	('12-08-2019','12-11-2019',600,41,40,80,40);
 
-INSERT INTO InvoicedLoan
-	(startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID)
-VALUES
-	('02-14-2019', '02-19-2019', 500, 50, 1, 42, 1),
-	('07-31-2018', '08-02-2018', 200, 40, 2, 43, 2),
-	('05-31-2018', '06-01-2018', 600, 10, 3, 44, 3),
-	('10-17-2018', '10-20-2018', 300, 30, 4, 45, 4),
-	('01-14-2018', '01-19-2018', 500, 50, 1, 46, 1),
-	('06-21-2019', '06-23-2019', 200, 40, 2, 47, 2),
-	('10-04-2018', '10-05-2018', 600, 10, 3, 48, 3),
-	('01-14-2019', '01-19-2019', 500, 50, 1, 49, 1),
-	('05-05-2018', '05-07-2018', 200, 40, 2, 50, 2),
-	('04-24-2018', '04-25-2018', 600, 10, 3, 51, 3),
-	('09-17-2019', '09-22-2019', 500, 50, 1, 52, 1),
-	('02-14-2018', '02-16-2018', 200, 40, 2, 53, 2),
-	('03-10-2018', '03-11-2018', 600, 10, 3, 54, 3),
-	('09-10-2019', '09-15-2019', 500, 50, 1, 55, 1),
-	('08-14-2019', '08-16-2019', 200, 40, 2, 56, 2),
-	('09-05-2018', '09-06-2018', 600, 10, 3, 57, 3),
-	('02-05-2018', '02-07-2018', 200, 40, 2, 57, 2),
-	('07-10-2019', '07-15-2019', 500, 50, 1, 64, 1),
-	('02-03-2017', '02-04-2017', 600, 10, 3, 1, 3);
+call insertNewInvoicedLoan('02-19-2018', 1,41,1);
+call insertNewInvoicedLoan('02-14-2019',2,42,2);
+call insertNewInvoicedLoan('07-31-2018',3,43,3);
+call insertNewInvoicedLoan('05-31-2018',4,44,4);
+call insertNewInvoicedLoan('10-17-2018',5,45,5);
+call insertNewInvoicedLoan('01-14-2018',6,46,6);
+call insertNewInvoicedLoan('05-21-2019',7,47,7);
+call insertNewInvoicedLoan('10-04-2018',8,48,8);
+call insertNewInvoicedLoan('01-14-2019',9,49,9);
+call insertNewInvoicedLoan('05-05-2018',10,50,10);
+call insertNewInvoicedLoan('04-24-2018',11,51,11);
+call insertNewInvoicedLoan('10-08-2018',12,52,12);
+call insertNewInvoicedLoan('11-01-2019',13,53,13);
+call insertNewInvoicedLoan('01-24-2019',14,54,14);
+call insertNewInvoicedLoan('07-30-2017',15,55,15);
+call insertNewInvoicedLoan('04-18-2018',16,56,16);
+call insertNewInvoicedLoan('09-19-2018',17,57,17);
+call insertNewInvoicedLoan('10-07-2018',18,58,18);
+call insertNewInvoicedLoan('06-09-2018',19,59,19);
+call insertNewInvoicedLoan('09-09-2019',20,60,20);
+call insertNewInvoicedLoan('10-06-2018',21,61,21);
+call insertNewInvoicedLoan('03-10-2018',22,62,22);
+call insertNewInvoicedLoan('07-07-2018',23,63,23);
+call insertNewInvoicedLoan('09-09-2018',24,64,24);
+call insertNewInvoicedLoan('04-28-2018',25,65,25);
+call insertNewInvoicedLoan('09-04-2018',26,66,26);
+call insertNewInvoicedLoan('06-20-2018',27,67,27);
+call insertNewInvoicedLoan('04-12-2018',28,68,28);
+call insertNewInvoicedLoan('03-31-2018',29,69,29);
+call insertNewInvoicedLoan('05-20-2018',30,70,30);
+call insertNewInvoicedLoan('02-09-2018',31,71,31);
+call insertNewInvoicedLoan('03-27-2018',32,72,32);
+call insertNewInvoicedLoan('10-29-2017',33,73,33);
+call insertNewInvoicedLoan('07-24-2019',34,74,34);
+call insertNewInvoicedLoan('09-24-2017',35,75,35);
+call insertNewInvoicedLoan('12-08-2019',36,76,36);
+call insertNewInvoicedLoan('01-18-2019',37,77,37);
+call insertNewInvoicedLoan('06-09-2018',38,78,38);
+call insertNewInvoicedLoan('07-24-2018',39,79,39);
+call insertNewInvoicedLoan('12-08-2019',40,80,40);
+
+
+call insertNewInvoicedLoan('02-14-2019', 1, 42, 1);
+call insertNewInvoicedLoan('07-31-2018', 2, 43, 2);
+call insertNewInvoicedLoan('05-31-2018', 3, 44, 3);
+call insertNewInvoicedLoan('10-17-2018', 4, 45, 4);
+call insertNewInvoicedLoan('01-14-2018', 1, 46, 1);
+call insertNewInvoicedLoan('06-21-2019', 2, 47, 2);
+call insertNewInvoicedLoan('10-04-2018', 3, 48, 3);
+call insertNewInvoicedLoan('01-14-2019', 1, 49, 1);
+call insertNewInvoicedLoan('05-05-2018', 2, 50, 2);
+call insertNewInvoicedLoan('04-24-2018', 3, 51, 3);
+call insertNewInvoicedLoan('09-17-2019', 1, 52, 1);
+call insertNewInvoicedLoan('02-14-2018', 2, 53, 2);
+call insertNewInvoicedLoan('03-10-2018', 3, 54, 3);
+call insertNewInvoicedLoan('09-10-2019', 1, 55, 1);
+call insertNewInvoicedLoan('08-14-2019', 2, 56, 2);
+call insertNewInvoicedLoan('09-05-2018', 3, 57, 3);
+call insertNewInvoicedLoan('02-05-2018', 2, 57, 2);
+call insertNewInvoicedLoan('07-10-2019', 1, 64, 1);
+call insertNewInvoicedLoan('02-03-2017', 3, 1, 3);
 --date format is month, day, year
 
 
