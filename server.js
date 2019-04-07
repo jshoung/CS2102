@@ -263,7 +263,7 @@ app.get(
     }
     let data = await pool.query(
       `
-    select groupName, groupDescription, joinDate from 
+    select groupName, groupDescription, joinDate, groupAdminID from 
       InterestGroup
       natural join 
       Joins
@@ -296,6 +296,7 @@ app.delete(
         [req.query.userId, req.query.groupName],
       )
     } catch (error) {
+      console.log('Error message:', error.hint)
       return res.status(400).json({ errors: error })
     }
     res.send({ data })

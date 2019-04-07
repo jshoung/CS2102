@@ -4,6 +4,7 @@ import axios from 'axios'
 import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
 
 import { parseMDYLongDate } from '../util/moment'
+import ErrorModal from './ErrorModal'
 
 interface MyProps {
   selectedUser: object
@@ -13,6 +14,7 @@ interface MyProps {
 interface MyState {
   data: { rows: any }
   userId: string
+  errorMessage: string
 }
 
 class UserInterestGroups extends Component<MyProps, MyState> {
@@ -21,6 +23,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
     this.state = {
       data: { rows: [] },
       userId: '',
+      errorMessage: '',
     }
   }
 
@@ -45,12 +48,16 @@ class UserInterestGroups extends Component<MyProps, MyState> {
   }
 
   async leaveGroup(groupName: string, userId: string) {
-    await axios.delete('/joins', {
-      params: {
-        userId,
-        groupName,
-      },
-    })
+    await axios
+      .delete('/joins', {
+        params: {
+          userId,
+          groupName,
+        },
+      })
+      .catch((error) => {
+        this.setState({ errorMessage: error.response.data.errors.hint })
+      })
 
     this.fetchInterestGroups()
   }
@@ -63,6 +70,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
       const groupName = _.get(row, 'groupname')
       const groupDescription = _.get(row, 'groupdescription')
       const groupJoinDate = _.get(row, 'joindate')
+      const groupAdminId = _.get(row, 'groupadminid')
 
       return (
         <CardDeck style={{ paddingBottom: '10px' }}>
@@ -84,7 +92,10 @@ class UserInterestGroups extends Component<MyProps, MyState> {
             <Card.Footer
               style={{ display: 'flex', justifyContent: 'space-between' }}
             >
-              Joined on {parseMDYLongDate(groupJoinDate)}
+              {groupAdminId === userId
+                ? `You created this group`
+                : `Joined on ${parseMDYLongDate(groupJoinDate)}`}
+
               <Button
                 onClick={() => this.leaveGroup(groupName, userId)}
                 variant="outline-danger"
@@ -111,6 +122,12 @@ class UserInterestGroups extends Component<MyProps, MyState> {
 
     return (
       <Container>
+        <ErrorModal
+          message={this.state.errorMessage}
+          closeModal={() => {
+            this.setState({ errorMessage: '' })
+          }}
+        />
         <Row style={{ paddingBottom: '20px' }}>
           <Col>{this.renderUserInterestGroups(rows)}</Col>
         </Row>
