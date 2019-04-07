@@ -188,7 +188,7 @@ create table Advertisement
 	closingDate date not null,
 	advertiser integer,
 	itemID integer,
-	penalty integer not null,  --should follow the loanerItem penalty
+	penalty integer not null,  --default value is the loanerItem penalty, but there is no need to ensure it matches the value in loanerItem at all times.
 	loanDuration integer not null, --special duration for ad
 	startDate date not null, --special startdate for ads
 	endDate date not null,
@@ -588,6 +588,43 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
 -- CONSTRUCTING THE SPECIAL ADDER.  CONSTRUCT THE CHOOSES. AFTER THAT MUST CONSTRCT ALL THE CHECKS.  check that the loan/ad start and end date must be = loan duration. check startdate must be after advertisement closing date.  also cannot clash.
 -- also two different advertisements have to check against each other, startandenddate.
+create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer)
+as
+$$
+	declare newStartDate date;
+			newEndDate date;
+			newPenalty integer;
+			newLoanDuration integer;
+			newLoanerID integer; --should be the advertiser
+			newItemID integer; --should be the itemID of the advertisement item
+			
+			newLoanFee integer; -- bidprice, can see from the bidID
+			newBorrowerID integer; --can see from the bidID
+			
+	begin	
+		select startDate, endDate, penalty, loanDuration, advertiser, itemID
+		into newStartDate, newEndDate, newPenalty, newLoanDuration, newLoanerID, newItemID
+		from advertisement
+		where newAdvID = advID;
+	
+		select price, borrowerID
+		into newLoanFee, newBorrowerID
+		from bid
+		where newBidID = bidID;
+		
+	
+		insert into invoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) values 
+		(newStartDate, newEndDate, newPenalty, newLoanFee, newLoanerID, newBorrowerID, newItemID);
+		
+		insert into chooses (bidID, userID, advID) values 
+		(newBidID, newUserID, newAdvID);
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
+
 create or replace procedure insertNewAdvertisement(newMinimumPrice integer,newOpeningDate date,newClosingDate date,newMinimumIncrease integer,newAdvertiser integer,newItemID integer, newLoanDuration integer, newStartDate date)
 as
 $$
@@ -1056,12 +1093,7 @@ call insertNewBid(57, 7,'04-02-2019',14);
 call insertNewBid(85, 8,'02-04-2019',12);
 call insertNewBid(76, 9,'05-02-2019',16);
 	
-
-INSERT INTO Chooses
-	(bidID,userID,advID)
-VALUES
-	(5, 2, 2);
-
+call insertNewChooses(5,2,2);
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 + 15 invoicedLoans.  The later 15 have reviews tagged to them
