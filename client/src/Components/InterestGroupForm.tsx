@@ -6,7 +6,7 @@ import axios from 'axios'
 interface MyProps {
   selectedUser: object
   toggleLoading: (callback: () => void) => void
-  cancelCreateGroup: Function
+  toggleCreateGroup: Function
   isEditing: boolean
 }
 
@@ -40,9 +40,14 @@ class InterestGroupForm extends Component<MyProps, MyState> {
     const { selectedUser, toggleLoading, isEditing } = this.props
     const userId = _.get(selectedUser, 'userId')
 
-    toggleLoading(async () => {
-      toggleLoading(() => {})
+    axios.post('/interestgroups', {
+      userId: userId,
+      groupDescription: this.state.groupDescription,
+      groupName: this.state.groupName,
     })
+
+    this.props.toggleCreateGroup()
+
     event.preventDefault()
   }
 
@@ -76,7 +81,7 @@ class InterestGroupForm extends Component<MyProps, MyState> {
         </Button>
         <Button
           style={{ margin: '1em' }}
-          onClick={() => this.props.cancelCreateGroup()}
+          onClick={() => this.props.toggleCreateGroup()}
           variant="primary"
         >
           {'Cancel'}

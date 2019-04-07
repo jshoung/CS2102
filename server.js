@@ -263,7 +263,7 @@ app.get(
     }
     let data = await pool.query(
       `
-    select groupName, groupDescription, joinDate, groupAdminID from 
+    select groupName, groupDescription, joinDate, groupAdminID, creationDate from 
       InterestGroup
       natural join 
       Joins

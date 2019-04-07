@@ -83,6 +83,8 @@ class UserInterestGroups extends Component<MyProps, MyState> {
       const groupName = _.get(row, 'groupname')
       const groupDescription = _.get(row, 'groupdescription')
       const groupJoinDate = _.get(row, 'joindate')
+      const groupCreationDate = _.get(row, 'creationdate')
+
       const groupAdminId = _.get(row, 'groupadminid')
 
       return (
@@ -106,7 +108,9 @@ class UserInterestGroups extends Component<MyProps, MyState> {
               style={{ display: 'flex', justifyContent: 'space-between' }}
             >
               {groupAdminId === userId
-                ? `You created this group`
+                ? `You created this group on ${parseMDYLongDate(
+                    groupCreationDate,
+                  )}`
                 : `Joined on ${parseMDYLongDate(groupJoinDate)}`}
 
               <Button
@@ -125,6 +129,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
 
   toggleCreateGroupForm() {
     this.setState({ isCreating: !this.state.isCreating })
+    this.fetchInterestGroups()
   }
 
   render() {
@@ -151,7 +156,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
               isEditing={false}
               toggleLoading={toggleLoading}
               selectedUser={selectedUser}
-              cancelCreateGroup={this.toggleCreateGroupForm}
+              toggleCreateGroup={this.toggleCreateGroupForm}
             />
           ) : (
             <Button
