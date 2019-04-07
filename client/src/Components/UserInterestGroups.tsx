@@ -1,10 +1,19 @@
 import React, { Component } from 'react'
 import * as _ from 'lodash'
 import axios from 'axios'
-import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
+import {
+  Col,
+  Row,
+  Card,
+  Container,
+  CardDeck,
+  Button,
+  Form,
+} from 'react-bootstrap'
 
 import { parseMDYLongDate } from '../util/moment'
 import ErrorModal from './ErrorModal'
+import CreateInterestGroup from './InterestGroupForm'
 
 interface MyProps {
   selectedUser: object
@@ -15,6 +24,7 @@ interface MyState {
   data: { rows: any }
   userId: string
   errorMessage: string
+  isCreating: boolean
 }
 
 class UserInterestGroups extends Component<MyProps, MyState> {
@@ -24,7 +34,10 @@ class UserInterestGroups extends Component<MyProps, MyState> {
       data: { rows: [] },
       userId: '',
       errorMessage: '',
+      isCreating: false,
     }
+
+    this.toggleCreateGroupForm = this.toggleCreateGroupForm.bind(this)
   }
 
   async componentDidMount() {
@@ -110,8 +123,12 @@ class UserInterestGroups extends Component<MyProps, MyState> {
     })
   }
 
+  toggleCreateGroupForm() {
+    this.setState({ isCreating: !this.state.isCreating })
+  }
+
   render() {
-    const { selectedUser } = this.props
+    const { selectedUser, toggleLoading } = this.props
     const userId = _.get(selectedUser, 'userId')
     const { rows } = this.state.data
 
@@ -122,6 +139,31 @@ class UserInterestGroups extends Component<MyProps, MyState> {
 
     return (
       <Container>
+        <Row
+          style={{
+            display: 'flex',
+            paddingBottom: '10px',
+            justifyContent: 'space-around',
+          }}
+        >
+          {this.state.isCreating ? (
+            <CreateInterestGroup
+              isEditing={false}
+              toggleLoading={toggleLoading}
+              selectedUser={selectedUser}
+              cancelCreateGroup={this.toggleCreateGroupForm}
+            />
+          ) : (
+            <Button
+              className="text-center"
+              style={{ flex: '1 1 100%' }}
+              variant="outline-secondary"
+              onClick={this.toggleCreateGroupForm}
+            >
+              Create New Group
+            </Button>
+          )}
+        </Row>
         <ErrorModal
           message={this.state.errorMessage}
           closeModal={() => {
