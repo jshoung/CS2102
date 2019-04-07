@@ -283,6 +283,10 @@ app.post(
     body('userId').isInt(),
   ],
   async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
     const currentDate = moment().format('MM-DD-YYYY')
     let data = await pool.query(
       `
@@ -295,6 +299,37 @@ app.post(
         currentDate,
       ],
     )
+    res.send({ data })
+  },
+)
+
+app.patch(
+  '/interestgroups',
+  [
+    body('groupDescription').isString(),
+    body('groupName').isString(),
+    body('groupAdminId').isInt(),
+    body('userId').isInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    let data
+    try {
+      data = await pool.query(`call updateInterestGroup($1, $2, $3, $4)`, [
+        req.body.userId,
+        req.body.groupName,
+        req.body.groupAdminId,
+        req.body.groupDescription,
+      ])
+    } catch (error) {
+      console.log('Error message:', error.hint)
+      return res.status(400).json({ errors: error })
+    }
+
     res.send({ data })
   },
 )

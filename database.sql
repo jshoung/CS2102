@@ -597,7 +597,7 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 
 
-drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin;
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroup;
 create or replace procedure insertNewInterestGroup(newGroupName varchar(80),newGroupDescription varchar(8000),newGroupAdminID integer,newCreationDate date)
 as
 $$
@@ -613,17 +613,13 @@ $$
 $$
 language plpgsql;
 
-create or replace procedure updateInterestGroupAdmin(newGroupName varchar(80),newGroupAdminID integer)
+create or replace procedure updateInterestGroup(newLastModifiedBy integer, newGroupName varchar(80),newGroupAdminID integer, newGroupDescription varchar(8000))
 as
 $$
 	begin
 
 		update InterestGroup
-		set groupAdminID = newGroupAdminID
-		where groupName = newGroupName;
-
-		update InterestGroup
-		set lastModifiedBy = newGroupAdminID
+		set lastModifiedBy = newLastModifiedBy, groupAdminID = newGroupAdminID, groupDescription = newGroupDescription
 		where groupName = newGroupName;
 		
 	commit;
