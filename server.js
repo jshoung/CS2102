@@ -254,6 +254,20 @@ app.get('/interestgroups', async (req, res) => {
 })
 
 app.get(
+  '/interestgroups/members',
+  [query('groupName').isString()],
+  async (req, res) => {
+    let data = await pool.query(
+      `
+      select getMembersInInterestGroup($1)
+    `,
+      [req.query.groupName],
+    )
+    res.send({ data })
+  },
+)
+
+app.get(
   '/users/interestgroups',
   [query('userId').isInt()],
   async (req, res) => {
