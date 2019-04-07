@@ -15,7 +15,7 @@ interface MyState {
   groupDescription: string
 }
 
-class InterestGroupForm extends Component<MyProps, MyState> {
+class CreateGroupForm extends Component<MyProps, MyState> {
   constructor(props: any) {
     super(props)
     this.state = {
@@ -91,4 +91,4 @@ class InterestGroupForm extends Component<MyProps, MyState> {
   }
 }
 
-export default InterestGroupForm
+export default CreateGroupForm

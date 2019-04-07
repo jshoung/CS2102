@@ -8,12 +8,14 @@ import {
   Container,
   CardDeck,
   Button,
-  Form,
+  Popover,
+  OverlayTrigger,
 } from 'react-bootstrap'
+import * as Icon from 'react-feather'
 
 import { parseMDYLongDate } from '../util/moment'
 import ErrorModal from './ErrorModal'
-import CreateInterestGroup from './InterestGroupForm'
+import CreateGroupForm from './CreateGroupForm'
 
 interface MyProps {
   selectedUser: object
@@ -79,6 +81,14 @@ class UserInterestGroups extends Component<MyProps, MyState> {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
 
+    const popover = (
+      <Popover
+        id="popover-basic"
+        title="Edit Group Details"
+        style={{ width: '18rem' }}
+      />
+    )
+
     return groupList.map((row: any) => {
       const groupName = _.get(row, 'groupname')
       const groupDescription = _.get(row, 'groupdescription')
@@ -97,7 +107,17 @@ class UserInterestGroups extends Component<MyProps, MyState> {
             style={{ width: '18rem' }}
           >
             <Card.Body>
-              <Card.Title>{groupName}</Card.Title>
+              <Card.Title>
+                {groupName}{' '}
+                <OverlayTrigger
+                  rootClose={true}
+                  trigger="click"
+                  placement="right"
+                  overlay={popover}
+                >
+                  <Icon.Edit style={{ cursor: 'pointer' }} />
+                </OverlayTrigger>
+              </Card.Title>
               <Card.Text>
                 {groupDescription
                   ? groupDescription
@@ -152,7 +172,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
           }}
         >
           {this.state.isCreating ? (
-            <CreateInterestGroup
+            <CreateGroupForm
               isEditing={false}
               toggleLoading={toggleLoading}
               selectedUser={selectedUser}
