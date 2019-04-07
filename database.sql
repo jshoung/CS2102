@@ -232,24 +232,14 @@ $$
 			previousHighestBid integer;
 			adMinimumPrice integer;
 	begin
-		select highestBid
-		into previousHighestBid
+		select highestBid, minimumIncrease, minimumPrice
+		into previousHighestBid, adMinimumIncrease, adMinimumPrice
 		from Advertisement
 		where advID = new.advID;
-	
-		select minimumIncrease
-		into adMinimumIncrease
-		from Advertisement
-		where advID = new.advID;
-	
-		select minimumPrice
-		into adMinimumPrice
-		from Advertisement
-		where advID = new.advID;
-	
+		
 		if (previousHighestBid is null and new.price < adMinimumPrice) then 
 			raise exception 'You have to at least bid the minimum price';
-		return null;
+			return null;
 		elsif
 		(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
 			raise exception 'You have to at least bid the highest bid price, plus the minimum increase';
@@ -335,20 +325,17 @@ $$
 		where advID = new.advID;
 	
 		if (new.userID != creatorID) then 
-
 			raise exception 'You can only choose bids that you created the advertisements for';
-	return null;
-	elsif new.bidID not in
-	(select bidID
-	from Bid
-	where advID = new.advID)
-	then 
-			raise exception 'You can only choose the bids for your own advertisement';
-	return null;
-	else
-	return new;
-	end if;
-	
+			return null;
+		elsif new.bidID not in
+		(select bidID
+		from Bid
+		where advID = new.advID)  then 
+				raise exception 'You can only choose the bids for your own advertisement';
+			return null;
+		else
+			return new;
+		end if;
 	end
 $$
 language plpgsql;
@@ -422,18 +409,16 @@ $$
 		from InvoicedLoan
 		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
 			raise exception  'You cannot begin a loan when that item is on loan during that time';
-	return null;
-	elsif
-	(select max(invoiceID)
-	from InvoicedLoan
-	where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID)
-	is not null then 
+			return null;
+		elsif
+		(select max(invoiceID)
+		from InvoicedLoan
+		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
 			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time';
-	return null;
-	else
-	return new;
-	end if;
-	
+			return null;
+		else
+			return new;
+		end if;
 	end
 $$
 language plpgsql;
@@ -460,9 +445,8 @@ $$
 			raise exception 'You cannot advertise an item that is currently already being advertised';
 			return null;
 		else
-		return new;
+			return new;
 		end if;
-	
 	end
 $$
 language plpgsql;
@@ -538,27 +522,10 @@ create  or replace function checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCr
 returns trigger as 
 $$
 	declare currentAdminID integer;
-			currentGroupName varchar(80);
 			currentCreationDate date;
-			currentGroupDescription varchar(8000);
 	begin
-		select groupAdminID
-		into currentAdminID
-		from interestGroup 
-		where groupName = new.groupName;
-	
-		select groupName
-		into currentGroupName
-		from interestGroup 
-		where groupName = new.groupName;
-		
-		select creationDate
-		into currentCreationDate
-		from interestGroup 
-		where groupName = new.groupName;
-		
-		select groupDescription
-		into currentGroupDescription
+		select groupAdminID, creationDate
+		into currentAdminID, currentCreationDate
 		from interestGroup 
 		where groupName = new.groupName;
 	
@@ -1093,7 +1060,6 @@ call insertNewBid(57, 7,'04-02-2019',14);
 call insertNewBid(85, 8,'02-04-2019',12);
 call insertNewBid(76, 9,'05-02-2019',16);
 	
-call insertNewChooses(5,2,2);
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 + 15 invoicedLoans.  The later 15 have reviews tagged to them
@@ -1161,6 +1127,7 @@ call insertNewInvoicedLoan('07-10-2019', 1, 64, 1);
 call insertNewInvoicedLoan('02-03-2017', 3, 1, 3);
 --date format is month, day, year
 
+call insertNewChooses(5,2,2);
 
 INSERT INTO UserReviewItem
  	(userID,itemOwnerID,itemID,reviewComment,reviewDate,rating,invoiceID)
