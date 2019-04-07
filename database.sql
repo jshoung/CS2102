@@ -669,19 +669,6 @@ language plpgsql;
 
 
 drop function if exists getMembersInInterestGroup;
---Queries
-
-create or replace function getMembersInInterestGroup(newGroupName varchar(80))
-returns table(
-	userID integer,
-	name varchar(80)
-) as $$
-	begin
-		return query select J.userID, UA.name 
-			from InterestGroup IG natural join Joins J natural join UserAccount UA
-			where IG.groupName = newGroupName;
-	end; $$
-language 'plpgsql';	
 
 --userID from 1 to 100 inclusive
 INSERT INTO UserAccount

@@ -16,6 +16,7 @@ import * as Icon from 'react-feather'
 import { parseMDYLongDate } from '../util/moment'
 import ErrorModal from './ErrorModal'
 import CreateGroupForm from './CreateGroupForm'
+import EditGroupForm from './EditGroupForm'
 
 interface MyProps {
   selectedUser: object
@@ -40,6 +41,8 @@ class UserInterestGroups extends Component<MyProps, MyState> {
     }
 
     this.toggleCreateGroupForm = this.toggleCreateGroupForm.bind(this)
+    this.showErrorModal = this.showErrorModal.bind(this)
+    this.fetchInterestGroups = this.fetchInterestGroups.bind(this)
   }
 
   async componentDidMount() {
@@ -71,31 +74,43 @@ class UserInterestGroups extends Component<MyProps, MyState> {
         },
       })
       .catch((error) => {
-        this.setState({ errorMessage: error.response.data.errors.hint })
+        this.showErrorModal(error.response.data.errors.hint)
       })
 
     this.fetchInterestGroups()
+  }
+
+  showErrorModal(errorMessage: string) {
+    this.setState({ errorMessage: errorMessage })
   }
 
   renderUserInterestGroups(groupList: any) {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
 
-    const popover = (
-      <Popover
-        id="popover-basic"
-        title="Edit Group Details"
-        style={{ width: '18rem' }}
-      />
-    )
-
     return groupList.map((row: any) => {
       const groupName = _.get(row, 'groupname')
       const groupDescription = _.get(row, 'groupdescription')
       const groupJoinDate = _.get(row, 'joindate')
       const groupCreationDate = _.get(row, 'creationdate')
-
       const groupAdminId = _.get(row, 'groupadminid')
+
+      const popover = (
+        <Popover
+          id="popover-basic"
+          title="Edit Group Details"
+          style={{ width: '18rem' }}
+        >
+          <EditGroupForm
+            groupDescription={groupDescription}
+            groupName={groupName}
+            groupAdminId={groupAdminId}
+            selectedUser={selectedUser}
+            showErrorModal={this.showErrorModal}
+            fetchInterestGroups={this.fetchInterestGroups}
+          />
+        </Popover>
+      )
 
       return (
         <CardDeck style={{ paddingBottom: '10px' }}>

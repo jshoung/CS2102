@@ -259,7 +259,9 @@ app.get(
   async (req, res) => {
     let data = await pool.query(
       `
-      select getMembersInInterestGroup($1)
+      select J.userID, UA.name 
+			from InterestGroup IG natural join Joins J natural join UserAccount UA
+			where IG.groupName = $1;
     `,
       [req.query.groupName],
     )
