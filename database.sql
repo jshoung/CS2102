@@ -335,7 +335,7 @@ $$
 		if (new.userID != creatorID) then 
 
 			raise exception 'You can only choose bids that you created the advertisements for'
-			using hint 'You can only choose bids that you created the advertisements for';
+			using hint = 'You can only choose bids that you created the advertisements for';
 	return null;
 	elsif new.bidID not in
 	(select bidID
@@ -343,7 +343,7 @@ $$
 	where advID = new.advID)
 	then 
 			raise exception 'You can only choose the bids for your own advertisement'
-			using hint 'You can only choose the bids for your own advertisement';
+			using hint = 'You can only choose the bids for your own advertisement';
 
 	return null;
 	else
@@ -373,7 +373,7 @@ $$
 	
 		if (new.reviewDate < invoiceDate) then 
 			raise exception 'Reviews cannot be written before the loan begins'
-			using hint 'Reviews cannot be written before the loan begins';
+			using hint = 'Reviews cannot be written before the loan begins';
 			return null;
 		else
 			return new;
@@ -401,7 +401,7 @@ $$
 	
 		if (new.userID != invoiceOwner) then 
 			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses'
-			using hint 'Reviews can only be written with reference to your own invoices, and not someone elses';
+			using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
 			return null;
 		else
 			return new;
@@ -425,7 +425,7 @@ $$
 		from InvoicedLoan
 		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
 			raise exception  'You cannot begin a loan when that item is on loan during that time'
-			using hint 'You cannot begin a loan when that item is on loan during that time';
+			using hint = 'You cannot begin a loan when that item is on loan during that time';
 	return null;
 	elsif
 	(select max(invoiceID)
@@ -433,7 +433,7 @@ $$
 	where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID)
 	is not null then 
 			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time'
-			using hint 'You cannot have an item on loan when that item is on loan to someone else during that time';
+			using hint = 'You cannot have an item on loan when that item is on loan to someone else during that time';
 	return null;
 	else
 	return new;
@@ -458,13 +458,13 @@ $$
 		from advertisement
 		where new.openingDate >= openingDate and new.openingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
 			raise exception  'You cannot advertise an item that is currently already being advertised'
-			using hint 'You cannot advertise an item that is currently already being advertised';
+			using hint = 'You cannot advertise an item that is currently already being advertised';
 			return null;
 		elsif(select max(advID)
 			from advertisement
 			where new.closingDate >= openingDate and new.closingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
 			raise exception 'You cannot advertise an item that is currently already being advertised'
-			using hint 'You cannot advertise an item that is currently already being advertised';
+			using hint = 'You cannot advertise an item that is currently already being advertised';
 			return null;
 		else
 		return new;
@@ -596,7 +596,7 @@ update on InterestGroup
 for each row
 execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate();
 
-
+-- Procedures
 
 drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroup;
 create or replace procedure insertNewInterestGroup(newGroupName varchar(80),newGroupDescription varchar(8000),newGroupAdminID integer,newCreationDate date)
