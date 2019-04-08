@@ -420,6 +420,12 @@ $$
 		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
 			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time';
 			return null;
+		elsif
+		(select max(invoiceID)
+		from InvoicedLoan
+		where new.startDate <= startDate and new.endDate >= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
+			raise exception 'You cannot have an item on loan when that item is on loan to someone else within that time';
+			return null;
 		else
 			return new;
 		end if;
@@ -434,19 +440,24 @@ for each row
 execute procedure checkLoanDateClash();
 
 
-create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash()
+create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans()
 returns trigger as 
 $$
 	begin
 		if(select max(advID)
 		from advertisement
 		where new.startDate >= startDate and new.startDate <= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
-			raise exception  'You cannot advertise an item for a loan period that is currently already being advertised for another loan period';
+			raise exception  'You cannot advertise an item for a loan period that starts when it is currently already on loan for the same loan period';
 			return null;
 		elsif(select max(advID)
 			from advertisement
 			where new.endDate >= startDate and new.endDate <= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
-			raise exception 'You cannot advertise an item for a loan period that is currently already being advertised for another loan period';
+			raise exception 'You cannot advertise an item for a loan period that ends when it is currently already being advertised for the same loan period';
+			return null;
+		elsif(select max(advID)
+			from advertisement
+			where new.startDate <= startDate and new.endDate >= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
+			raise exception 'You cannot advertise an item for a loan period that is currently already being advertised for the same loan period';
 			return null;
 		else
 			return new;
@@ -460,6 +471,39 @@ before
 update or insert on Advertisement
 for each row
 execute procedure checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash();
+
+
+create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans()
+returns trigger as 
+$$
+	begin
+		if(select max(loanerID)
+		from invoicedLoan
+		where new.startDate >= startDate and new.startDate <= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
+			raise exception  'You cannot advertise an item for a loan period that start when it is currently already on loan for that period';
+			return null;
+		elsif(select max(loanerID)
+			from invoicedLoan
+			where new.endDate >= startDate and new.endDate <= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
+			raise exception 'You cannot advertise an item for a loan period that ends when it is currently already on loan for that period';
+			return null;
+		elsif(select max(loanerID)
+			from invoicedLoan
+			where new.startDate <= startDate and new.endDate >= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
+			raise exception 'You cannot advertise an item for a loan period that is currently already on loan for that period';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig2CheckLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans
+before
+update or insert on Advertisement
+for each row
+execute procedure checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans();
 
 
 
@@ -558,7 +602,6 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
 -- AFTER THAT MUST CONSTRCT ALL THE CHECKS.  adv and invoicedloan also cannot clash
--- also two different advertisements have to check against each other, startandenddate.
 create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer)
 as
 $$
@@ -1042,7 +1085,7 @@ call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 7, 7,5,'05-01-202
 call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 8, 8,7,'07-02-2020');
 call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 9, 9,5,'05-04-2020');
 
-	
+
 call insertNewBid(64, 1,'03-01-2019',10);
 call insertNewBid(49, 1,'03-02-2019',12);
 call insertNewBid(85, 1,'03-03-2019',14);
