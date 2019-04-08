@@ -407,6 +407,22 @@ app.post(
 )
 
 // *************************** //
+//       Advertisements        //
+// *************************** //
+
+app.get('/advertisements', async (req, res) => {
+  const data = await pool.query('select * from advertisement')
+
+  res.send({ data })
+})
+
+app.get('/items', async (req, res) => {
+  const data = await pool.query('select * from loanerItem')
+
+  res.send({ data })
+})
+
+// *************************** //
 //        Miscellaneous        //
 // *************************** //
 
