@@ -1,3 +1,4 @@
+set datestyle = "mdy";
 -- delete tables if already exists
 DROP TABLE IF EXISTS UserAccount
 CASCADE;

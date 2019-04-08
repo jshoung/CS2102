@@ -159,11 +159,13 @@ class Main extends Component {
             toggleLoading={this.toggleLoading}
           />,
         )
+        break
       case 'Advertisements':
         content.push(<Adverisements 
           userList={this.state.userList} 
           items={this.state.items} 
           advertisements={this.state.advertisements}/>)
+          break
       default:
         break
     }
