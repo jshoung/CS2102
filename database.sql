@@ -197,7 +197,11 @@ create table Advertisement
 	primary key (advID),
 	foreign key (advertiser) references Loaner(userID) on delete cascade,
 	foreign key (advertiser, itemID) references LoanerItem(userID, itemID) on delete cascade,
-	check(minimumIncrease > 0 and openingDate <= closingDate)
+	check(minimumIncrease > 0),
+	check(openingDate <= closingDate),
+	check(startDate > closingDate),
+	check(startDate < endDate),
+	check(endDate = startDate + interval '1' day * loanDuration)
 );
 
 
@@ -458,30 +462,6 @@ for each row
 execute procedure checkNotAlreadyAdvertised();
 
 
-create or replace function checkStartDatePlusLoanDurationIsEndDateForAd()
-returns trigger as
-$$	
-	declare correctEndDate date;
-	begin
-		correctEndDate := new.startDate  + interval '1' day * new.LoanDuration;
-		
-		if (correctEndDate != new.endDate) then 
-			raise exception  'Please place an appropriate end date for this advertisement entry.  It is the startDate + loanDuration';
-			return null;
-		else
-			return new;
-		end if;
-	end
-$$
-language plpgsql;
-
-create trigger trig2CheckStartDatePlusLoanDurationIsEndDateForAd
-before
-update or insert on Advertisement
-for each row
-execute procedure checkStartDatePlusLoanDurationIsEndDateForAd();
-
-
 create  or replace function checkCreatorCannotLeave()
 returns trigger as 
 $$
@@ -576,7 +556,7 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 
 drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
--- AFTER THAT MUST CONSTRCT ALL THE CHECKS.  check that the loan/ad start and end date must be = loan duration. check startdate must be after advertisement closing date.  also cannot clash.
+-- AFTER THAT MUST CONSTRCT ALL THE CHECKS.  check startdate must be after advertisement closing date.  also cannot clash.
 -- also two different advertisements have to check against each other, startandenddate.
 create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer)
 as
