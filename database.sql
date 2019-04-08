@@ -458,6 +458,30 @@ for each row
 execute procedure checkNotAlreadyAdvertised();
 
 
+create or replace function checkStartDatePlusLoanDurationIsEndDateForAd()
+returns trigger as
+$$	
+	declare correctEndDate date;
+	begin
+		correctEndDate := new.startDate  + interval '1' day * new.LoanDuration;
+		
+		if (correctEndDate != new.endDate) then 
+			raise exception  'Please place an appropriate end date for this advertisement entry.  It is the startDate + loanDuration';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig2CheckStartDatePlusLoanDurationIsEndDateForAd
+before
+update or insert on Advertisement
+for each row
+execute procedure checkStartDatePlusLoanDurationIsEndDateForAd();
+
+
 create  or replace function checkCreatorCannotLeave()
 returns trigger as 
 $$
@@ -534,7 +558,6 @@ $$
 			return null;
 	
 		elsif(new.lastModifiedBy != currentAdminID)then 
-			raise notice 'new lastmodifed by is (%)', new.lastModifiedBy;
 			raise exception 'Only the group admin can make changes to group details';
 			return null;
 		else
@@ -553,7 +576,7 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 
 drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
--- CONSTRUCTING THE SPECIAL ADDER.  CONSTRUCT THE CHOOSES. AFTER THAT MUST CONSTRCT ALL THE CHECKS.  check that the loan/ad start and end date must be = loan duration. check startdate must be after advertisement closing date.  also cannot clash.
+-- AFTER THAT MUST CONSTRCT ALL THE CHECKS.  check that the loan/ad start and end date must be = loan duration. check startdate must be after advertisement closing date.  also cannot clash.
 -- also two different advertisements have to check against each other, startandenddate.
 create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer)
 as
@@ -687,6 +710,7 @@ $$
 	end;
 $$
 language plpgsql;
+
 
 --userID from 1 to 100 inclusive
 INSERT INTO UserAccount
