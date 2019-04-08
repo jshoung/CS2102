@@ -440,6 +440,69 @@ for each row
 execute procedure checkLoanDateClash();
 
 
+create or replace function checkInvoicedLoanClashWithCurrentAdvertisement()
+returns trigger as
+$$
+	declare correctBorrowerID integer;
+			correctLoanFee integer;
+			correspondingAdvID integer;
+			correspondingBidID integer;
+			
+			
+	--only the borrower who won the bid should be allowed to loan during that time.
+	begin
+		select advID
+		into correspondingAdvID
+		from advertisement
+		where new.loanerID = advertiser and new.itemID = itemID and new.startDate = startDate and new.endDate = endDate;
+	
+		select bidID 
+		into correspondingBidID
+		from chooses
+		where advID = correspondingAdvID;
+	
+		select borrowerID, price
+		into correctBorrowerID, correctLoanFee
+		from bid 
+		where bidID = correspondingBidID;
+		
+		
+		if (select max(advID)
+		from Advertisement
+		where new.startDate = startDate and new.endDate = endDate and new.loanerID = advertiser and new.itemID = itemID and new.borrowerID = correctBorrowerID and new.loanFee = correctLoanFee) is not null then 
+			--only the borrower who won the bid should be allowed to loan during that time, and only exactly that time, for that price
+			return new;
+		elsif (select max(advID)
+		from Advertisement
+		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
+			raise exception  'You cannot begin a loan when that item is advertised to be on loan during that time';
+			return null;
+		elsif
+		(select max(advID)
+		from Advertisement
+		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
+			raise exception 'You cannot have an item on loan when that item is advertised to be on loan during that time';
+			return null;
+		elsif
+		(select max(advID)
+		from Advertisement
+		where new.startDate <= startDate and new.endDate >= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
+			raise exception 'You cannot have an item on loan when that item is advertised to be on loan within that time';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig2CheckInvoicedLoanClashWithCurrentAdvertisement
+before
+update or insert on InvoicedLoan
+for each row
+execute procedure checkInvoicedLoanClashWithCurrentAdvertisement();
+
+
 create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans()
 returns trigger as 
 $$
@@ -601,7 +664,7 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 
 drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
--- AFTER THAT MUST CONSTRCT ALL THE CHECKS.  adv and invoicedloan also cannot clash
+
 create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer)
 as
 $$
@@ -616,6 +679,9 @@ $$
 			newBorrowerID integer; --can see from the bidID
 			
 	begin	
+		insert into chooses (bidID, userID, advID) values 
+		(newBidID, newUserID, newAdvID);
+		
 		select startDate, endDate, penalty, loanDuration, advertiser, itemID
 		into newStartDate, newEndDate, newPenalty, newLoanDuration, newLoanerID, newItemID
 		from advertisement
@@ -629,9 +695,6 @@ $$
 	
 		insert into invoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) values 
 		(newStartDate, newEndDate, newPenalty, newLoanFee, newLoanerID, newBorrowerID, newItemID);
-		
-		insert into chooses (bidID, userID, advID) values 
-		(newBidID, newUserID, newAdvID);
 		
 	commit;
 	end;
