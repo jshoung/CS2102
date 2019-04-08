@@ -462,6 +462,35 @@ for each row
 execute procedure checkNotAlreadyAdvertised();
 
 
+create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash()
+returns trigger as 
+$$
+	begin
+		if(select max(advID)
+		from advertisement
+		where new.startDate >= startDate and new.startDate <= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
+			raise exception  'You cannot advertise an item for a loan period that is currently already being advertised for another loan period';
+			return null;
+		elsif(select max(advID)
+			from advertisement
+			where new.endDate >= startDate and new.endDate <= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
+			raise exception 'You cannot advertise an item for a loan period that is currently already being advertised for another loan period';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig2CheckLoanDateWithinAdvertisementForTheSameItemDoesNotClash
+before
+update or insert on Advertisement
+for each row
+execute procedure checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash();
+
+
+
 create  or replace function checkCreatorCannotLeave()
 returns trigger as 
 $$
@@ -556,7 +585,7 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 
 drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
--- AFTER THAT MUST CONSTRCT ALL THE CHECKS.  check startdate must be after advertisement closing date.  also cannot clash.
+-- AFTER THAT MUST CONSTRCT ALL THE CHECKS.  adv and invoicedloan also cannot clash
 -- also two different advertisements have to check against each other, startandenddate.
 create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer)
 as
