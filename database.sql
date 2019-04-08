@@ -71,6 +71,7 @@ create table InterestGroup
 	foreign key (lastModifiedBy) references UserAccount (userID) on delete set null
 );
 
+
 -- (userID, groupName) is the primary key because each user can only join each group once.  
 -- if either the user or the group is deleted, the 'Join' entry is deleted.
 
@@ -239,11 +240,15 @@ $$
 		where advID = new.advID;
 	
 		if (previousHighestBid is null and new.price < adMinimumPrice) then 
-			raise exception 'You have to at least bid the minimum price';
+			raise exception 'You have to at least bid the minimum price'
+			using hint = 'You have to at least bid the minimum price';
+
 		return null;
 		elsif
 		(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
-			raise exception 'You have to at least bid the highest bid price, plus the minimum increase';
+			raise exception 'You have to at least bid the highest bid price, plus the minimum increase'
+			using hint = 'You have to at least bid the highest bid price, plus the minimum increase';
+
 		return null;
 		else
 		return new;
@@ -271,7 +276,8 @@ $$
 		where advID = new.advID;
 
 		if (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
-			raise exception 'You can only bid when the adverisement is open';
+			raise exception 'You can only bid when the adverisement is open'
+			using hint = 'You can only bid when the adverisement is open';
 			return null;
 		else 
 			return new;
@@ -297,7 +303,8 @@ $$
 		from Advertisement
 		where advID = new.advID;
 		if (new.borrowerID = originalAdvertiser) then 
-			raise exception 'You cannot bid for your own advertisements';
+			raise exception 'You cannot bid for your own advertisements'
+			using hint = 'You cannot bid for your own advertisements';
 		return null;
 		else
 		return new;
@@ -327,14 +334,17 @@ $$
 	
 		if (new.userID != creatorID) then 
 
-			raise exception 'You can only choose bids that you created the advertisements for';
+			raise exception 'You can only choose bids that you created the advertisements for'
+			using hint = 'You can only choose bids that you created the advertisements for';
 	return null;
 	elsif new.bidID not in
 	(select bidID
 	from Bid
 	where advID = new.advID)
 	then 
-			raise exception 'You can only choose the bids for your own advertisement';
+			raise exception 'You can only choose the bids for your own advertisement'
+			using hint = 'You can only choose the bids for your own advertisement';
+
 	return null;
 	else
 	return new;
@@ -362,7 +372,8 @@ $$
 		where invoiceID = new.invoiceID;
 	
 		if (new.reviewDate < invoiceDate) then 
-			raise exception 'Reviews cannot be written before the loan begins';
+			raise exception 'Reviews cannot be written before the loan begins'
+			using hint = 'Reviews cannot be written before the loan begins';
 			return null;
 		else
 			return new;
@@ -389,7 +400,8 @@ $$
 		where invoiceID = new.invoiceID;
 	
 		if (new.userID != invoiceOwner) then 
-			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses';
+			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses'
+			using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
 			return null;
 		else
 			return new;
@@ -412,14 +424,16 @@ $$
 		if (select max(invoiceID)
 		from InvoicedLoan
 		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
-			raise exception  'You cannot begin a loan when that item is on loan during that time';
+			raise exception  'You cannot begin a loan when that item is on loan during that time'
+			using hint = 'You cannot begin a loan when that item is on loan during that time';
 	return null;
 	elsif
 	(select max(invoiceID)
 	from InvoicedLoan
 	where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID)
 	is not null then 
-			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time';
+			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time'
+			using hint = 'You cannot have an item on loan when that item is on loan to someone else during that time';
 	return null;
 	else
 	return new;
@@ -443,12 +457,14 @@ $$
 		if(select max(advID)
 		from advertisement
 		where new.openingDate >= openingDate and new.openingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
-			raise exception  'You cannot advertise an item that is currently already being advertised';
+			raise exception  'You cannot advertise an item that is currently already being advertised'
+			using hint = 'You cannot advertise an item that is currently already being advertised';
 			return null;
 		elsif(select max(advID)
 			from advertisement
 			where new.closingDate >= openingDate and new.closingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
-			raise exception 'You cannot advertise an item that is currently already being advertised';
+			raise exception 'You cannot advertise an item that is currently already being advertised'
+			using hint = 'You cannot advertise an item that is currently already being advertised';
 			return null;
 		else
 		return new;
@@ -475,7 +491,8 @@ $$
 		from InterestGroup 
 		where old.groupName = groupName;
 		if(old.userID = groupLeader) then 
-			raise exception  'The group admin cannot leave the group, you have to hand over responsibilities first';
+			raise exception  'The group admin cannot leave the group, you have to hand over responsibilities first'
+				 using hint = 'The group admin cannot leave the group, you have to hand over responsibilities first';
 			return null;
 		else
 			return old;
@@ -509,7 +526,8 @@ $$
 			where new.groupName = groupName and new.groupAdminID = userID;
 		
 		if(currentGroupAdminID != new.groupAdminID and (successorID is null) ) then 
-			raise exception 'The new group admin has to be have joined this group';
+			raise exception 'The new group admin has to be have joined this group'
+			using hint = 'The new group admin has to be have joined this group';
 			return null;
 		else
 			return new;
@@ -554,12 +572,16 @@ $$
 		where groupName = new.groupName;
 	
 		if(new.creationDate != currentCreationDate) then 
-			raise exception 'Creation date should never be changed';
+			raise exception 'Creation date should never be changed'
+			using hint = 'Creation date should never be changed';
+
 			return null;
 	
 		elsif(new.lastModifiedBy != currentAdminID)then 
 			raise notice 'new lastmodifed by is (%)', new.lastModifiedBy;
-			raise exception 'Only the group admin can make changes to group details';
+			raise exception 'Only the group admin can make changes to group details'
+			using hint = 'Only the group admin can make changes to group details';
+			
 			return null;
 		else
 			return new;
@@ -574,9 +596,9 @@ update on InterestGroup
 for each row
 execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate();
 
+-- Procedures
 
-
-drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin;
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroup;
 create or replace procedure insertNewInterestGroup(newGroupName varchar(80),newGroupDescription varchar(8000),newGroupAdminID integer,newCreationDate date)
 as
 $$
@@ -592,17 +614,13 @@ $$
 $$
 language plpgsql;
 
-create or replace procedure updateInterestGroupAdmin(newGroupName varchar(80),newGroupAdminID integer)
+create or replace procedure updateInterestGroup(newLastModifiedBy integer, newGroupName varchar(80),newGroupAdminID integer, newGroupDescription varchar(8000))
 as
 $$
 	begin
 
 		update InterestGroup
-		set groupAdminID = newGroupAdminID
-		where groupName = newGroupName;
-
-		update InterestGroup
-		set lastModifiedBy = newGroupAdminID
+		set lastModifiedBy = newLastModifiedBy, groupAdminID = newGroupAdminID, groupDescription = newGroupDescription
 		where groupName = newGroupName;
 		
 	commit;
@@ -648,6 +666,9 @@ $$
 	end;
 $$
 language plpgsql;
+
+
+drop function if exists getMembersInInterestGroup;
 
 --userID from 1 to 100 inclusive
 INSERT INTO UserAccount

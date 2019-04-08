@@ -1,9 +1,22 @@
 import React, { Component } from 'react'
 import * as _ from 'lodash'
 import axios from 'axios'
-import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
+import {
+  Col,
+  Row,
+  Card,
+  Container,
+  CardDeck,
+  Button,
+  Popover,
+  OverlayTrigger,
+} from 'react-bootstrap'
+import * as Icon from 'react-feather'
 
 import { parseMDYLongDate } from '../util/moment'
+import ErrorModal from './ErrorModal'
+import CreateGroupForm from './CreateGroupForm'
+import EditGroupForm from './EditGroupForm'
 
 interface MyProps {
   selectedUser: object
@@ -13,6 +26,8 @@ interface MyProps {
 interface MyState {
   data: { rows: any }
   userId: string
+  errorMessage: string
+  isCreating: boolean
 }
 
 class UserInterestGroups extends Component<MyProps, MyState> {
@@ -21,7 +36,13 @@ class UserInterestGroups extends Component<MyProps, MyState> {
     this.state = {
       data: { rows: [] },
       userId: '',
+      errorMessage: '',
+      isCreating: false,
     }
+
+    this.toggleCreateGroupForm = this.toggleCreateGroupForm.bind(this)
+    this.showErrorModal = this.showErrorModal.bind(this)
+    this.fetchInterestGroups = this.fetchInterestGroups.bind(this)
   }
 
   async componentDidMount() {
@@ -45,14 +66,22 @@ class UserInterestGroups extends Component<MyProps, MyState> {
   }
 
   async leaveGroup(groupName: string, userId: string) {
-    await axios.delete('/joins', {
-      params: {
-        userId,
-        groupName,
-      },
-    })
+    await axios
+      .delete('/joins', {
+        params: {
+          userId,
+          groupName,
+        },
+      })
+      .catch((error) => {
+        this.showErrorModal(error.response.data.errors.hint)
+      })
 
     this.fetchInterestGroups()
+  }
+
+  showErrorModal(errorMessage: string) {
+    this.setState({ errorMessage: errorMessage })
   }
 
   renderUserInterestGroups(groupList: any) {
@@ -63,6 +92,25 @@ class UserInterestGroups extends Component<MyProps, MyState> {
       const groupName = _.get(row, 'groupname')
       const groupDescription = _.get(row, 'groupdescription')
       const groupJoinDate = _.get(row, 'joindate')
+      const groupCreationDate = _.get(row, 'creationdate')
+      const groupAdminId = _.get(row, 'groupadminid')
+
+      const popover = (
+        <Popover
+          id="popover-basic"
+          title="Edit Group Details"
+          style={{ width: '18rem' }}
+        >
+          <EditGroupForm
+            groupDescription={groupDescription}
+            groupName={groupName}
+            groupAdminId={groupAdminId}
+            selectedUser={selectedUser}
+            showErrorModal={this.showErrorModal}
+            fetchInterestGroups={this.fetchInterestGroups}
+          />
+        </Popover>
+      )
 
       return (
         <CardDeck style={{ paddingBottom: '10px' }}>
@@ -74,7 +122,17 @@ class UserInterestGroups extends Component<MyProps, MyState> {
             style={{ width: '18rem' }}
           >
             <Card.Body>
-              <Card.Title>{groupName}</Card.Title>
+              <Card.Title>
+                {groupName}{' '}
+                <OverlayTrigger
+                  rootClose={true}
+                  trigger="click"
+                  placement="right"
+                  overlay={popover}
+                >
+                  <Icon.Edit style={{ cursor: 'pointer' }} />
+                </OverlayTrigger>
+              </Card.Title>
               <Card.Text>
                 {groupDescription
                   ? groupDescription
@@ -84,7 +142,12 @@ class UserInterestGroups extends Component<MyProps, MyState> {
             <Card.Footer
               style={{ display: 'flex', justifyContent: 'space-between' }}
             >
-              Joined on {parseMDYLongDate(groupJoinDate)}
+              {groupAdminId === userId
+                ? `You created this group on ${parseMDYLongDate(
+                    groupCreationDate,
+                  )}`
+                : `Joined on ${parseMDYLongDate(groupJoinDate)}`}
+
               <Button
                 onClick={() => this.leaveGroup(groupName, userId)}
                 variant="outline-danger"
@@ -99,8 +162,13 @@ class UserInterestGroups extends Component<MyProps, MyState> {
     })
   }
 
+  toggleCreateGroupForm() {
+    this.setState({ isCreating: !this.state.isCreating })
+    this.fetchInterestGroups()
+  }
+
   render() {
-    const { selectedUser } = this.props
+    const { selectedUser, toggleLoading } = this.props
     const userId = _.get(selectedUser, 'userId')
     const { rows } = this.state.data
 
@@ -111,6 +179,37 @@ class UserInterestGroups extends Component<MyProps, MyState> {
 
     return (
       <Container>
+        <Row
+          style={{
+            display: 'flex',
+            paddingBottom: '10px',
+            justifyContent: 'space-around',
+          }}
+        >
+          {this.state.isCreating ? (
+            <CreateGroupForm
+              isEditing={false}
+              toggleLoading={toggleLoading}
+              selectedUser={selectedUser}
+              toggleCreateGroup={this.toggleCreateGroupForm}
+            />
+          ) : (
+            <Button
+              className="text-center"
+              style={{ flex: '1 1 100%' }}
+              variant="outline-secondary"
+              onClick={this.toggleCreateGroupForm}
+            >
+              Create New Group
+            </Button>
+          )}
+        </Row>
+        <ErrorModal
+          message={this.state.errorMessage}
+          closeModal={() => {
+            this.setState({ errorMessage: '' })
+          }}
+        />
         <Row style={{ paddingBottom: '20px' }}>
           <Col>{this.renderUserInterestGroups(rows)}</Col>
         </Row>

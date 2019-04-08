@@ -254,6 +254,22 @@ app.get('/interestgroups', async (req, res) => {
 })
 
 app.get(
+  '/interestgroups/members',
+  [query('groupName').isString()],
+  async (req, res) => {
+    let data = await pool.query(
+      `
+      select J.userID, UA.name 
+			from InterestGroup IG natural join Joins J natural join UserAccount UA
+			where IG.groupName = $1;
+    `,
+      [req.query.groupName],
+    )
+    res.send({ data })
+  },
+)
+
+app.get(
   '/users/interestgroups',
   [query('userId').isInt()],
   async (req, res) => {
@@ -263,7 +279,7 @@ app.get(
     }
     let data = await pool.query(
       `
-    select groupName, groupDescription, joinDate from 
+    select groupName, groupDescription, joinDate, groupAdminID, creationDate from 
       InterestGroup
       natural join 
       Joins
@@ -271,6 +287,65 @@ app.get(
     `,
       [req.query.userId],
     )
+    res.send({ data })
+  },
+)
+
+app.post(
+  '/interestgroups',
+  [
+    body('groupDescription').isString(),
+    body('groupName').isString(),
+    body('userId').isInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    const currentDate = moment().format('MM-DD-YYYY')
+    let data = await pool.query(
+      `
+      call insertNewInterestGroup($1, $2, $3, $4)
+    `,
+      [
+        req.body.groupName,
+        req.body.groupDescription,
+        req.body.userId,
+        currentDate,
+      ],
+    )
+    res.send({ data })
+  },
+)
+
+app.patch(
+  '/interestgroups',
+  [
+    body('groupDescription').isString(),
+    body('groupName').isString(),
+    body('groupAdminId').isInt(),
+    body('userId').isInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    let data
+    try {
+      data = await pool.query(`call updateInterestGroup($1, $2, $3, $4)`, [
+        req.body.userId,
+        req.body.groupName,
+        req.body.groupAdminId,
+        req.body.groupDescription,
+      ])
+    } catch (error) {
+      console.log('Error message:', error.hint)
+      return res.status(400).json({ errors: error })
+    }
+
     res.send({ data })
   },
 )
@@ -296,6 +371,7 @@ app.delete(
         [req.query.userId, req.query.groupName],
       )
     } catch (error) {
+      console.log('Error message:', error.hint)
       return res.status(400).json({ errors: error })
     }
     res.send({ data })
