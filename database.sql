@@ -434,34 +434,6 @@ for each row
 execute procedure checkLoanDateClash();
 
 
-create  or replace function checkNotAlreadyAdvertised()
-returns trigger as 
-$$
-	begin
-		if(select max(advID)
-		from advertisement
-		where new.openingDate >= openingDate and new.openingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
-			raise exception  'You cannot advertise an item that is currently already being advertised';
-			return null;
-		elsif(select max(advID)
-			from advertisement
-			where new.closingDate >= openingDate and new.closingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
-			raise exception 'You cannot advertise an item that is currently already being advertised';
-			return null;
-		else
-			return new;
-		end if;
-	end
-$$
-language plpgsql;
-
-create trigger trig1CheckNotAlreadyAdvertised
-before
-update or insert on Advertisement
-for each row
-execute procedure checkNotAlreadyAdvertised();
-
-
 create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash()
 returns trigger as 
 $$
@@ -483,7 +455,7 @@ $$
 $$
 language plpgsql;
 
-create trigger trig2CheckLoanDateWithinAdvertisementForTheSameItemDoesNotClash
+create trigger trig1CheckLoanDateWithinAdvertisementForTheSameItemDoesNotClash
 before
 update or insert on Advertisement
 for each row
@@ -1060,10 +1032,9 @@ VALUES
 	('Vintage Music CD', 900, 49, 32, 5),
 	('Spiderman Movie', 200, 50, 26, 1);
 
-
 call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 1, 1,5,'05-01-2020');
 call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 2, 2,6,'07-02-2020');
-call insertNewAdvertisement(5, '04-02-2019', '05-04-2019', 2, 3, 3,7,'05-04-2020');
+call insertNewAdvertisement(5, '04-02-2019', '05-04-2019', 2, 3, 3,7,'05-04-2021');
 call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 4, 4,5,'05-01-2020');
 call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 5, 5,6,'07-02-2020');
 call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 6, 6,7,'05-04-2020');
