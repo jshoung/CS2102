@@ -240,7 +240,10 @@ $$
 			targetAdvClosing date;
 			originalAdvertiser integer;
 			reportAgainstNum integer;
+			windowDate date;
 	begin
+		windowDate := new.bidDate - interval '1' day * 7;
+
 		select highestBid, minimumIncrease, minimumPrice, openingDate, closingDate, advertiser
 		into previousHighestBid, adMinimumIncrease, adMinimumPrice, targetAdvOpening, targetAdvClosing, originalAdvertiser
 		from Advertisement
@@ -248,25 +251,33 @@ $$
 	
 		select count(*)
 		into reportAgainstNum 
-		from report 
+		from (select *
+			from report 
+			where reportDate >= windowDate) as innerCall
 		group by reportee 
 		having reportee = new.borrowerID;
+		raise notice 'count is (%)', reportAgainstNum;
 		
 		if (previousHighestBid is null and new.price < adMinimumPrice) then 
-			raise exception 'You have to at least bid the minimum price';
+			raise exception 'You have to at least bid the minimum price'
+			using hint = 'You have to at least bid the minimum price';
 			return null;
 		elsif
 		(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
-			raise exception 'You have to at least bid the highest bid price, plus the minimum increase';
+			raise exception 'You have to at least bid the highest bid price, plus the minimum increase'
+			using hint = 'You have to at least bid the highest bid price, plus the minimum increase';
 			return null;
 		elsif (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
-			raise exception 'You can only bid when the adverisement is open';
+			raise exception 'You can only bid when the adverisement is open'
+			using hint = 'You can only bid when the adverisement is open';
 			return null;
 		elsif (new.borrowerID = originalAdvertiser) then 
-			raise exception 'You cannot bid for your own advertisements';
+			raise exception 'You cannot bid for your own advertisements'
+			using hint = 'You cannot bid for your own advertisements';
 			return null;
 		elsif (reportAgainstNum > 5) then 
-			raise exception 'You have too many reports against you and so you are not allowed to bid for advertisements';
+			raise exception 'You have too many reports against you in the past week, and so you are not allowed to bid for advertisements'
+			using hint = 'You have too many reports against you in the past week, and so you are not allowed to bid for advertisements';
 			return null;
 		else
 			return new;
