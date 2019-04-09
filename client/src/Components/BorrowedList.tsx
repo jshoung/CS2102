@@ -3,7 +3,7 @@ import axios from 'axios'
 import _ from 'lodash'
 import { Card, CardDeck, Button, OverlayTrigger } from 'react-bootstrap'
 
-import { parseMDYDate } from '../util/moment'
+import { parseMDYLongDate } from '../util/moment'
 
 interface MyProps {
   selectedUser: object
@@ -69,9 +69,9 @@ class BorrowedList extends Component<MyProps, MyState> {
             <Card.Subtitle />
             <Card.Subtitle>{`Item Owner: ${_.get(row, 'name')}`}</Card.Subtitle>
             <Card.Text>
-              {`Start Date: ${parseMDYDate(
+              {`Start Date: ${parseMDYLongDate(
                 _.get(row, 'startdate'),
-              )} End Date: ${parseMDYDate(_.get(row, 'enddate'))}`}{' '}
+              )} End Date: ${parseMDYLongDate(_.get(row, 'enddate'))}`}{' '}
               <br />
               {`Loan Fee: ${_.get(row, 'loanfee')} Penalty: ${_.get(
                 row,

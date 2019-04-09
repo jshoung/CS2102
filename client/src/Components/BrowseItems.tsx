@@ -3,7 +3,7 @@ import axios from 'axios'
 import _ from 'lodash'
 import { Card, CardDeck, Button, OverlayTrigger } from 'react-bootstrap'
 
-import { parseMDYDate } from '../util/moment'
+import { parseMDYLongDate } from '../util/moment'
 
 interface MyProps {
   selectedUser: object
