@@ -91,7 +91,6 @@ class EditGroupForm extends Component<MyProps, MyState> {
   }
 
   render() {
-    console.log(this.state.data)
     return (
       <Form style={{ flex: '1 1 100%' }} onSubmit={this.handleSubmit}>
         <Form.Group controlId="ControlInput1">

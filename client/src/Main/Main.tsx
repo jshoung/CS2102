@@ -70,8 +70,102 @@ class Main extends Component {
     this.setState({ userList })
   }
 
+  renderItems = (content: any[]) => {
+    const { userItems, selectedUser } = this.state
+
+    userItems.forEach((row) => {
+      const popover = (
+        <Popover
+          id="popover-basic"
+          title="Edit Item"
+          style={{ width: '18rem' }}
+        >
+          <AddItem
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+            selectedItem={row}
+            isEditing={true}
+          />
+        </Popover>
+      )
+
+      content.push(
+        <CardDeck style={{ paddingBottom: '10px' }}>
+          <Card
+            className="text-center"
+            bg="dark"
+            text="white"
+            border="dark"
+            style={{ width: '18rem' }}
+          >
+            <Card.Body>
+              <Card.Title>
+                {_.get(row, 'itemname')}{' '}
+                <OverlayTrigger
+                  rootClose={true}
+                  trigger="click"
+                  placement="right"
+                  overlay={popover}
+                >
+                  <Icon.Edit style={{ cursor: 'pointer' }} />
+                </OverlayTrigger>
+              </Card.Title>
+              <Card.Subtitle className={'mb-2'}>
+                Item Value: ${_.get(row, 'value')} | Loan Fee: $
+                {_.get(row, 'loanfee')} | Loan Duration:{' '}
+                {_.get(row, 'loanduration')} Days
+              </Card.Subtitle>
+              <Card.Text>
+                Description: {_.get(row, 'itemdescription')}
+              </Card.Text>
+            </Card.Body>
+            <Card.Footer>
+              <div>
+                <Button variant="light" size="sm">
+                  Put Up For Loan
+                </Button>
+              </div>
+            </Card.Footer>
+          </Card>
+        </CardDeck>,
+      )
+    })
+  }
+
+  renderBrowseUsers = (content: any[]) => {
+    const { data } = this.state
+
+    _.get(data, 'rows').forEach((row: any) => {
+      let name = row.name
+      let userid = row.userid
+      content.push(
+        <CardDeck style={{ paddingBottom: '10px' }}>
+          <Card
+            className="text-center"
+            bg="dark"
+            text="white"
+            border="dark"
+            style={{ width: '18rem' }}
+          >
+            <Card.Body>
+              <Card.Title>{name}</Card.Title>
+            </Card.Body>
+            <Card.Footer>
+              <div>
+                <Button variant="light" size="sm">
+                  Report User
+                </Button>
+              </div>
+            </Card.Footer>
+          </Card>
+        </CardDeck>,
+      )
+    })
+  }
+
   updateTab = () => {
-    const { userItems, selectedTab, selectedUser } = this.state
+    const { selectedTab, selectedUser } = this.state
     let content: any[] = []
 
     switch (selectedTab) {
@@ -86,63 +180,14 @@ class Main extends Component {
         )
         break
       case 'Items':
-        userItems.forEach((row) => {
-          const popover = (
-            <Popover
-              id="popover-basic"
-              title="Edit Item"
-              style={{ width: '18rem' }}
-            >
-              <AddItem
-                selectedUser={selectedUser}
-                toggleLoading={this.toggleLoading}
-                loadTabData={this.loadTabData}
-                selectedItem={row}
-                isEditing={true}
-              />
-            </Popover>
-          )
-
-          content.push(
-            <CardDeck style={{ paddingBottom: '10px' }}>
-              <Card
-                className="text-center"
-                bg="dark"
-                text="white"
-                border="dark"
-                style={{ width: '18rem' }}
-              >
-                <Card.Body>
-                  <Card.Title>
-                    {_.get(row, 'itemname')}{' '}
-                    <OverlayTrigger
-                      rootClose={true}
-                      trigger="click"
-                      placement="right"
-                      overlay={popover}
-                    >
-                      <Icon.Edit style={{ cursor: 'pointer' }} />
-                    </OverlayTrigger>
-                  </Card.Title>
-                  <Card.Subtitle>Price: ${_.get(row, 'value')}</Card.Subtitle>
-                  <Card.Text>
-                    Description: {_.get(row, 'itemdescription')}
-                  </Card.Text>
-                </Card.Body>
-                <Card.Footer>
-                  <div>
-                    <Button variant="light" size="sm">
-                      Put Up For Loan
-                    </Button>
-                  </div>
-                </Card.Footer>
-              </Card>
-            </CardDeck>,
-          )
-        })
+        {
+          this.renderItems(content)
+        }
         break
-      case 'Loans':
-        // content = <div>Loan name</div>
+      case 'Browse Users':
+        {
+          this.renderBrowseUsers(content)
+        }
         break
       case 'Interest Groups':
         content.push(
@@ -224,11 +269,11 @@ class Main extends Component {
                   </Nav.Item>
                   <Nav.Item>
                     <Nav.Link
-                      eventKey="Loans"
-                      onSelect={() => this.changeTab('Loans')}
+                      eventKey="Browse Users"
+                      onSelect={() => this.changeTab('Browse Users')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Loans
+                      Browse Users
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
@@ -267,14 +312,7 @@ class Main extends Component {
   }
 
   render() {
-    const {
-      selectedTab,
-      selectedUser,
-      userList,
-      content,
-      isLoading,
-      pageToRender,
-    } = this.state
+    const { selectedUser, userList, isLoading, pageToRender } = this.state
 
     return (
       <>

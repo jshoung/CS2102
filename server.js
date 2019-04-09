@@ -93,20 +93,29 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
 
 app.post('/add-item', async (req, res) => {
   await pool.query(
-    'insert into loaneritem (itemname, value, itemdescription, userid) values ($1, $2, $3, $4)',
-    [req.body.itemName, req.body.itemValue, req.body.itemDesc, req.body.userId],
+    'insert into loaneritem (itemname, value, itemdescription, userid, loanfee, loanduration) values ($1, $2, $3, $4, $5, $6)',
+    [
+      req.body.itemName,
+      req.body.itemValue,
+      req.body.itemDesc,
+      req.body.userId,
+      req.body.loanFee,
+      req.body.loanDuration,
+    ],
   )
   res.sendStatus(200)
 })
 
 app.patch('/add-item', async (req, res) => {
   await pool.query(
-    'update loaneritem set itemname = $1, value = $2, itemdescription = $3, userid = $4 where itemid = $5',
+    'update loaneritem set itemname = $1, value = $2, itemdescription = $3, userid = $4, loanfee = $5, loanduration = $6 where itemid = $7',
     [
       req.body.itemName,
       req.body.itemValue,
       req.body.itemDesc,
       req.body.userId,
+      req.body.loanFee,
+      req.body.loanDuration,
       req.body.itemId,
     ],
   )
