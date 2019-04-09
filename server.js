@@ -165,33 +165,34 @@ app.patch('/add-item', async (req, res) => {
 //        Invoiced Loans       //
 // *************************** //
 
-app.post('/users/loans', checkInvoicedLoanSchema, async (req, res) => {
-  const errors = validationResult(req)
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
-  }
+app.post(
+  '/users/loans',
+  [
+    body('loanerId').isInt(),
+    body('borrowerId').isInt(),
+    body('itemId').isInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
 
-  let data
-  try {
-    data = await pool.query(
-      `insert into InvoicedLoan (startDate, endDate, penalty, loanFee, loanerID, borrowerID, itemID) 
-      values ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        req.body.startDate,
-        req.body.endDate,
-        req.body.penalty,
-        req.body.loanFee,
-        req.body.loanerID,
-        req.body.borrowerID,
-        req.body.itemID,
-      ],
-    )
-  } catch (error) {
-    return res.status(400).json({ errors: error })
-  }
+    const currentDate = moment().format('MM-DD-YYYY')
+    let data
+    try {
+      data = await pool.query(
+        `call insertNewInvoicedLoan($1,$2,$3,$4)
+        `,
+        [currentDate, req.body.loanerId, req.body.borrowerId, req.body.itemId],
+      )
+    } catch (error) {
+      return res.status(400).json({ errors: error })
+    }
 
-  res.send({ data })
-})
+    res.send({ data })
+  },
+)
 
 app.patch('/users/loans', checkInvoicedLoanSchema, async (req, res) => {
   const errors = validationResult(req)
