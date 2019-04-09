@@ -3,8 +3,6 @@ import axios from 'axios'
 import _ from 'lodash'
 import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
 
-import { parseMDYLongDate } from '../util/moment'
-
 interface MyProps {
   selectedUser: object
   toggleLoading: (callback: () => void) => void
@@ -23,8 +21,11 @@ class BrowseItems extends Component<MyProps, MyState> {
   }
 
   async componentDidMount() {
+    await this.fetchAvailableItems()
+  }
+
+  async fetchAvailableItems() {
     const { selectedUser } = this.props
-    const userId = _.get(selectedUser, 'userId')
 
     const { data } = await axios.get(`/items`, {
       params: {
@@ -35,9 +36,24 @@ class BrowseItems extends Component<MyProps, MyState> {
     this.setState({ ...data })
   }
 
-  renderAvailableItems(rows: any) {
+  async handleBorrowItem(row: any) {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
+    const loanerId = _.get(row, 'userid')
+    const itemId = _.get(row, 'itemid')
+
+    await axios.post('/users/loans', {
+      loanerId: loanerId,
+      borrowerId: userId,
+      itemId: itemId,
+    })
+
+    await this.fetchAvailableItems()
+  }
+
+  renderAvailableItems(rows: any) {
+    const { selectedUser } = this.props
+    const userId = _.get(selectedUser, 'userid')
     return rows.map((row: any) => {
       const itemDescription = _.get(row, 'itemdescription')
 
@@ -60,6 +76,15 @@ class BrowseItems extends Component<MyProps, MyState> {
                 Item Description: {itemDescription ? itemDescription : ' - '}
               </Card.Text>
             </Card.Body>
+            <Card.Footer>
+              <Button
+                variant="light"
+                size="sm"
+                onClick={() => this.handleBorrowItem(row)}
+              >
+                Borrow Item
+              </Button>
+            </Card.Footer>
           </Card>
         </CardDeck>
       )
