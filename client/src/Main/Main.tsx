@@ -166,14 +166,6 @@ class Main extends Component {
           />,
         )
         break
-      case 'BrowseItems':
-        content.push(
-          <BrowseItems
-            selectedUser={selectedUser}
-            toggleLoading={this.toggleLoading}
-            loadTabData={this.loadTabData}
-          />,
-        )
       case 'Interest Groups':
         content.push(
           <UserInterestGroups
@@ -263,15 +255,6 @@ class Main extends Component {
                   </Nav.Item>
                   <Nav.Item>
                     <Nav.Link
-                      eventKey="BrowseItems"
-                      onSelect={() => this.changeTab('BrowseItems')}
-                      disabled={_.isEmpty(selectedUser)}
-                    >
-                      Browse Items
-                    </Nav.Link>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <Nav.Link
                       eventKey="Interest Groups"
                       onSelect={() => this.changeTab('Interest Groups')}
                       disabled={_.isEmpty(selectedUser)}
@@ -292,7 +275,15 @@ class Main extends Component {
       case 'Interest Groups':
         return (
           <InterestGroups
-            selectedUser={this.state.selectedUser}
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+          />
+        )
+
+      case 'Browse Items':
+        return (
+          <BrowseItems
+            selectedUser={selectedUser}
             toggleLoading={this.toggleLoading}
           />
         )

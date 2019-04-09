@@ -8,7 +8,6 @@ import { parseMDYLongDate } from '../util/moment'
 interface MyProps {
   selectedUser: object
   toggleLoading: (callback: () => void) => void
-  loadTabData: () => Promise<void>
 }
 
 interface MyState {
@@ -27,9 +26,10 @@ class BrowseItems extends Component<MyProps, MyState> {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
 
-    const { data } = await axios.post(`/users/items`, {
-      userId: userId,
-      isListAvailable: true,
+    const { data } = await axios.get(`/items`, {
+      params: {
+        isListAvailable: true,
+      },
     })
 
     this.setState({ ...data })
@@ -47,13 +47,7 @@ class BrowseItems extends Component<MyProps, MyState> {
 
       return (
         <CardDeck style={{ paddingBottom: '10px' }}>
-          <Card
-            className="text-center"
-            bg="dark"
-            text="white"
-            border="dark"
-            style={{ width: '18rem' }}
-          >
+          <Card className="text-center" bg="dark" text="white" border="dark">
             <Card.Body>
               <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
               <Card.Subtitle>

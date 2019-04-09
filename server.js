@@ -77,7 +77,37 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   }
   let data
 
-  if (req.body.isListAvailable) {
+  const { rowCount } = await pool.query(
+    'select userId from UserAccount where userId = $1',
+    [req.body.userId],
+  )
+  if (!rowCount) {
+    return res.status(404).json({ errors: 'User not found in the database' })
+  }
+  data = await pool.query(
+    `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, IL.startDate, IL.endDate, IL.penalty, IL.loanFee, IL.borrowerId, name as borrowerName
+                    from LoanerItem LI
+                    left outer join 
+                    InvoicedLoan IL
+                    on LI.userID = IL.loanerID and LI.itemId = IL.itemID
+                    left outer join
+                    UserAccount UA
+                    on UA.userId = IL.borrowerId
+                    where LI.userID = $1`,
+    [req.body.userId],
+  )
+
+  // Check whether user exists in database
+
+  res.send({ data })
+})
+
+app.get('/items', [query('isListAvailable').isBoolean()], async (req, res) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() })
+  }
+  if (req.query.isListAvailable) {
     data = await pool.query(
       `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, UA.name as ownerName
                     from LoanerItem LI
@@ -90,28 +120,17 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
                     where IL.invoiceID is NULL`,
     )
   } else {
-    const { rowCount } = await pool.query(
-      'select userId from UserAccount where userId = $1',
-      [req.body.userId],
-    )
-    if (!rowCount) {
-      return res.status(404).json({ errors: 'User not found in the database' })
-    }
     data = await pool.query(
-      `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, IL.startDate, IL.endDate, IL.penalty, IL.loanFee, IL.borrowerId, name as borrowerName
+      `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, UA.name as ownerName
                     from LoanerItem LI
                     left outer join 
                     InvoicedLoan IL
                     on LI.userID = IL.loanerID and LI.itemId = IL.itemID
                     left outer join
                     UserAccount UA
-                    on UA.userId = IL.borrowerId
-                    where LI.userID = $1`,
-      [req.body.userId],
+                    on UA.userId = LI.userId`,
     )
   }
-
-  // Check whether user exists in database
 
   res.send({ data })
 })
