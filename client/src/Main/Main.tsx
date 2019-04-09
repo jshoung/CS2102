@@ -21,7 +21,8 @@ import BorrowedList from '../Components/BorrowedList'
 import BrowseItems from '../Components/BrowseItems'
 
 import NavBar from '../Components/NavBar'
-import { parseMDYDate } from '../util/moment'
+import { parseMDYLongDate } from '../util/moment'
+import UserInterestGroups from '../Components/UserInterestGroups'
 import InterestGroups from '../InterestGroups/InterestGroups'
 
 class Main extends Component {
@@ -137,9 +138,11 @@ class Main extends Component {
                   <Card.Subtitle>
                     Price: ${_.get(row, 'value')} <br />
                     {borrowerName
-                      ? `Loaned to ${borrowerName} for $${loanFee} from ${parseMDYDate(
+                      ? `Loaned to ${borrowerName} for $${loanFee} from ${parseMDYLongDate(
                           startDate,
-                        )} to ${parseMDYDate(endDate)} with penalty $${penalty}`
+                        )} to ${parseMDYLongDate(
+                          endDate,
+                        )} with penalty $${penalty}`
                       : ''}
                   </Card.Subtitle>
                   <Card.Text>
@@ -169,6 +172,13 @@ class Main extends Component {
             selectedUser={selectedUser}
             toggleLoading={this.toggleLoading}
             loadTabData={this.loadTabData}
+          />,
+        )
+      case 'Interest Groups':
+        content.push(
+          <UserInterestGroups
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
           />,
         )
       default:
@@ -258,6 +268,15 @@ class Main extends Component {
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Browse Items
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Interest Groups"
+                      onSelect={() => this.changeTab('Interest Groups')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Your Groups
                     </Nav.Link>
                   </Nav.Item>
                 </Nav>

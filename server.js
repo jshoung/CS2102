@@ -7,6 +7,7 @@ const morgan = require('morgan')
 const helmet = require('helmet')
 const { Pool } = require('pg')
 const cors = require('cors')
+const moment = require('moment')
 
 const { checkInvoicedLoanSchema } = require('./middleware')
 
@@ -289,11 +290,174 @@ app.get(
 app.get('/interestgroups', async (req, res) => {
   let data = await pool.query(
     `
-    select groupName, groupDescription from InterestGroup
+    select IG.groupName, groupDescription, J.userId, J.joinDate
+      from InterestGroup IG 
+        left outer join
+        Joins J
+        on J.groupName = IG.groupName and J.userId = $1
+        order by J.groupName
     `,
+    [req.query.userId],
   )
   res.send({ data })
 })
+
+app.get(
+  '/interestgroups/members',
+  [query('groupName').isString()],
+  async (req, res) => {
+    let data = await pool.query(
+      `
+      select J.userID, UA.name 
+			from InterestGroup IG natural join Joins J natural join UserAccount UA
+			where IG.groupName = $1;
+    `,
+      [req.query.groupName],
+    )
+    res.send({ data })
+  },
+)
+
+app.get(
+  '/users/interestgroups',
+  [query('userId').isInt()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data = await pool.query(
+      `
+    select groupName, groupDescription, joinDate, groupAdminID, creationDate from 
+      InterestGroup
+      natural join 
+      Joins
+    where userId = $1
+    `,
+      [req.query.userId],
+    )
+    res.send({ data })
+  },
+)
+
+app.post(
+  '/interestgroups',
+  [
+    body('groupDescription').isString(),
+    body('groupName').isString(),
+    body('userId').isInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    const currentDate = moment().format('MM-DD-YYYY')
+    let data = await pool.query(
+      `
+      call insertNewInterestGroup($1, $2, $3, $4)
+    `,
+      [
+        req.body.groupName,
+        req.body.groupDescription,
+        req.body.userId,
+        currentDate,
+      ],
+    )
+    res.send({ data })
+  },
+)
+
+app.patch(
+  '/interestgroups',
+  [
+    body('groupDescription').isString(),
+    body('groupName').isString(),
+    body('groupAdminId').isInt(),
+    body('userId').isInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    let data
+    try {
+      data = await pool.query(`call updateInterestGroup($1, $2, $3, $4)`, [
+        req.body.userId,
+        req.body.groupName,
+        req.body.groupAdminId,
+        req.body.groupDescription,
+      ])
+    } catch (error) {
+      console.log('Error message:', error.hint)
+      return res.status(400).json({ errors: error })
+    }
+
+    res.send({ data })
+  },
+)
+
+// *************************** //
+//            Joins            //
+// *************************** //
+
+app.delete(
+  '/joins',
+  [query('userId').isInt(), query('groupName').isString()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data
+
+    try {
+      data = await pool.query(
+        `delete from Joins where userId = $1 and groupName = $2
+      `,
+        [req.query.userId, req.query.groupName],
+      )
+    } catch (error) {
+      console.log('Error message:', error.hint)
+      return res.status(400).json({ errors: error })
+    }
+    res.send({ data })
+  },
+)
+
+app.post(
+  '/joins',
+  [body('userId').isInt(), body('groupName').isString()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data
+
+    const currentDate = moment().format('MM-DD-YYYY')
+
+    try {
+      data = await pool.query(
+        `INSERT INTO Joins
+        (joinDate, userID, groupname)
+        values 
+        ($1,$2,$3)
+      `,
+        [currentDate, req.body.userId, req.body.groupName],
+      )
+    } catch (error) {
+      return res.status(400).json({ errors: error })
+    }
+    res.send({ data })
+  },
+)
+
+// *************************** //
+//        Miscellaneous        //
+// *************************** //
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname + '/client/build/index.html'))

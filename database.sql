@@ -1,15 +1,3 @@
---Project 
---Data generated using https://www.generatedata.com/
-
-SELECT
-    table_schema || '.' || table_name
-FROM
-    information_schema.tables
-WHERE
-    table_type = 'BASE TABLE'
-AND
-    table_schema NOT IN ('pg_catalog', 'information_schema');
-
 -- delete tables if already exists
 DROP TABLE IF EXISTS UserAccount
 CASCADE;
@@ -74,9 +62,15 @@ create table Report
 create table InterestGroup
 (
 	groupName varchar(80),
-	groupDescription varchar(8000),
-	primary key (groupName)
+	groupDescription varchar(8000) not null,
+	groupAdminID integer not null,
+	creationDate date not null,
+	lastModifiedBy integer not null,
+	primary key (groupName),
+	foreign key (groupAdminID) references UserAccount (userID) on delete set null,
+	foreign key (lastModifiedBy) references UserAccount (userID) on delete set null
 );
+
 
 -- (userID, groupName) is the primary key because each user can only join each group once.  
 -- if either the user or the group is deleted, the 'Join' entry is deleted.
@@ -123,8 +117,11 @@ create table LoanerItem
 	value integer not null,
 	itemDescription varchar(8000),
 	userID integer,
+	loanFee integer not null, -- in dollars
+	loanDuration integer not null, -- in days
 	primary key (userID, itemID),
-	foreign key (userID) references Loaner (userID) on delete cascade
+	foreign key (userID) references Loaner (userID) on delete cascade,
+	check(loanFee >= 0 and loanDuration > 0)
 );
 
 create table InvoicedLoan
@@ -243,11 +240,15 @@ $$
 		where advID = new.advID;
 	
 		if (previousHighestBid is null and new.price < adMinimumPrice) then 
-			raise exception 'You have to at least bid the minimum price';
+			raise exception 'You have to at least bid the minimum price'
+			using hint = 'You have to at least bid the minimum price';
+
 		return null;
 		elsif
 		(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
-			raise exception 'You have to at least bid the highest bid price, plus the minimum increase';
+			raise exception 'You have to at least bid the highest bid price, plus the minimum increase'
+			using hint = 'You have to at least bid the highest bid price, plus the minimum increase';
+
 		return null;
 		else
 		return new;
@@ -275,7 +276,8 @@ $$
 		where advID = new.advID;
 
 		if (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
-			raise exception 'You can only bid when the adverisement is open';
+			raise exception 'You can only bid when the adverisement is open'
+			using hint = 'You can only bid when the adverisement is open';
 			return null;
 		else 
 			return new;
@@ -301,7 +303,8 @@ $$
 		from Advertisement
 		where advID = new.advID;
 		if (new.borrowerID = originalAdvertiser) then 
-			raise exception 'You cannot bid for your own advertisements';
+			raise exception 'You cannot bid for your own advertisements'
+			using hint = 'You cannot bid for your own advertisements';
 		return null;
 		else
 		return new;
@@ -318,9 +321,6 @@ for each row
 execute procedure checkUnableToBidForYourOwnAdvertisement();
 
 
-
-drop procedure if exists insertNewBid;
-
 create or replace function checkChoosesYourOwnAdvertisementAndCorrectBid()
 returns trigger as 
 $$
@@ -333,15 +333,18 @@ $$
 		where advID = new.advID;
 	
 		if (new.userID != creatorID) then 
-			raise exception 'creator ID is %', creatorID;
-	raise exception 'You can only choose bids that you created the advertisements for';
+
+			raise exception 'You can only choose bids that you created the advertisements for'
+			using hint = 'You can only choose bids that you created the advertisements for';
 	return null;
 	elsif new.bidID not in
 	(select bidID
 	from Bid
 	where advID = new.advID)
 	then 
-			raise exception 'You can only choose the bids for your own advertisement';
+			raise exception 'You can only choose the bids for your own advertisement'
+			using hint = 'You can only choose the bids for your own advertisement';
+
 	return null;
 	else
 	return new;
@@ -369,7 +372,8 @@ $$
 		where invoiceID = new.invoiceID;
 	
 		if (new.reviewDate < invoiceDate) then 
-			raise exception 'Reviews cannot be written before the loan begins';
+			raise exception 'Reviews cannot be written before the loan begins'
+			using hint = 'Reviews cannot be written before the loan begins';
 			return null;
 		else
 			return new;
@@ -396,7 +400,8 @@ $$
 		where invoiceID = new.invoiceID;
 	
 		if (new.userID != invoiceOwner) then 
-			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses';
+			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses'
+			using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
 			return null;
 		else
 			return new;
@@ -415,19 +420,20 @@ execute procedure checkReviewYourOwnInvoice();
 create or replace function checkLoanDateClash()
 returns trigger as
 $$
-	declare
 	begin
 		if (select max(invoiceID)
 		from InvoicedLoan
 		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
-			raise exception  'You cannot begin a loan when that item is on loan during that time';
+			raise exception  'You cannot begin a loan when that item is on loan during that time'
+			using hint = 'You cannot begin a loan when that item is on loan during that time';
 	return null;
 	elsif
 	(select max(invoiceID)
 	from InvoicedLoan
 	where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID)
 	is not null then 
-			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time';
+			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time'
+			using hint = 'You cannot have an item on loan when that item is on loan to someone else during that time';
 	return null;
 	else
 	return new;
@@ -451,12 +457,14 @@ $$
 		if(select max(advID)
 		from advertisement
 		where new.openingDate >= openingDate and new.openingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
-			raise exception  'You cannot advertise an item that is currently already being advertised';
+			raise exception  'You cannot advertise an item that is currently already being advertised'
+			using hint = 'You cannot advertise an item that is currently already being advertised';
 			return null;
 		elsif(select max(advID)
 			from advertisement
 			where new.closingDate >= openingDate and new.closingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
-			raise exception 'You cannot advertise an item that is currently already being advertised';
+			raise exception 'You cannot advertise an item that is currently already being advertised'
+			using hint = 'You cannot advertise an item that is currently already being advertised';
 			return null;
 		else
 		return new;
@@ -472,6 +480,153 @@ update or insert on Advertisement
 for each row
 execute procedure checkNotAlreadyAdvertised();
 
+
+create  or replace function checkCreatorCannotLeave()
+returns trigger as 
+$$
+	declare groupLeader integer;
+	begin
+		select groupAdminID
+		into groupLeader
+		from InterestGroup 
+		where old.groupName = groupName;
+		if(old.userID = groupLeader) then 
+			raise exception  'The group admin cannot leave the group, you have to hand over responsibilities first'
+				 using hint = 'The group admin cannot leave the group, you have to hand over responsibilities first';
+			return null;
+		else
+			return old;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig1CheckCreatorCannotLeave
+before
+delete on Joins
+for each row
+execute procedure checkCreatorCannotLeave();
+
+
+
+create  or replace function checkSuccessorMustBeMember()
+returns trigger as 
+$$
+	declare currentGroupAdminID integer;
+			successorID integer;
+	begin
+		select groupAdminID
+			into currentGroupAdminID
+			from InterestGroup
+			where new.groupName = groupName;
+		
+		select userID
+			into successorID
+			from Joins
+			where new.groupName = groupName and new.groupAdminID = userID;
+		
+		if(currentGroupAdminID != new.groupAdminID and (successorID is null) ) then 
+			raise exception 'The new group admin has to be have joined this group'
+			using hint = 'The new group admin has to be have joined this group';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig1CheckSuccessorMustBeMember
+before
+update on InterestGroup
+for each row
+execute procedure checkSuccessorMustBeMember();
+
+
+create  or replace function checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate()
+returns trigger as 
+$$
+	declare currentAdminID integer;
+			currentGroupName varchar(80);
+			currentCreationDate date;
+			currentGroupDescription varchar(8000);
+	begin
+		select groupAdminID
+		into currentAdminID
+		from interestGroup 
+		where groupName = new.groupName;
+	
+		select groupName
+		into currentGroupName
+		from interestGroup 
+		where groupName = new.groupName;
+		
+		select creationDate
+		into currentCreationDate
+		from interestGroup 
+		where groupName = new.groupName;
+		
+		select groupDescription
+		into currentGroupDescription
+		from interestGroup 
+		where groupName = new.groupName;
+	
+		if(new.creationDate != currentCreationDate) then 
+			raise exception 'Creation date should never be changed'
+			using hint = 'Creation date should never be changed';
+
+			return null;
+	
+		elsif(new.lastModifiedBy != currentAdminID)then 
+			raise notice 'new lastmodifed by is (%)', new.lastModifiedBy;
+			raise exception 'Only the group admin can make changes to group details'
+			using hint = 'Only the group admin can make changes to group details';
+			
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig2CheckOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
+before
+update on InterestGroup
+for each row
+execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate();
+
+-- Procedures
+
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroup;
+create or replace procedure insertNewInterestGroup(newGroupName varchar(80),newGroupDescription varchar(8000),newGroupAdminID integer,newCreationDate date)
+as
+$$
+	begin
+		insert into InterestGroup (groupName, groupDescription, groupAdminID, creationDate, lastModifiedBy) values 
+		(newGroupName, newGroupDescription, newGroupAdminID, newCreationDate, newGroupAdminID);
+
+		insert into Joins (joinDate, userID, groupname) values
+		(newCreationDate, newGroupAdminID, newGroupName);
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
+create or replace procedure updateInterestGroup(newLastModifiedBy integer, newGroupName varchar(80),newGroupAdminID integer, newGroupDescription varchar(8000))
+as
+$$
+	begin
+
+		update InterestGroup
+		set lastModifiedBy = newLastModifiedBy, groupAdminID = newGroupAdminID, groupDescription = newGroupDescription
+		where groupName = newGroupName;
+		
+	commit;
+	end;
+$$
+language plpgsql;
 
 create or replace procedure insertNewBid(newBorrowerID integer,newAdvID integer,newBidDate date,newPrice integer)
 as
@@ -489,7 +644,32 @@ $$
 $$
 language plpgsql;
 
-select * from advertisement;
+
+create or replace procedure insertNewInvoicedLoan(newStartDate date, newLoanerID integer,newBorrowerID integer,newItemID integer)
+as
+$$
+	declare newEndDate date;
+			newPenalty integer;
+			newLoanFee integer;
+			currentLoanDuration integer;
+	begin	
+		select value, loanFee, loanDuration
+		into newPenalty, newLoanFee, currentLoanDuration
+		from loanerItem
+		where newLoanerID = userID and newItemID = itemID;
+		
+		newEndDate := newStartDate + interval '1' day * currentLoanDuration;
+		insert into invoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) values 
+		(newStartDate, newEndDate, newPenalty, newLoanFee, newLoanerID, newBorrowerID, newItemID);
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
+
+drop function if exists getMembersInInterestGroup;
+
 --userID from 1 to 100 inclusive
 INSERT INTO UserAccount
 	(name,address)
@@ -615,41 +795,29 @@ VALUES
 	( 'No basic respect', '03-29-2019', 25, 2);
 
 --5 groups are created, only the first 3 have descriptions.
-INSERT INTO InterestGroup
-	(groupName, groupDescription)
-VALUES
-	('Photography Club', 'For all things photos'),
-	('Spiderman Fans', 'Live and Die by the web'),
-	('Tech Geeks', 'Self-explanatory.  We like tech && are geeks');
-INSERT INTO InterestGroup
-	(groupName)
-VALUES
-	('Refined Music People'),
-	('Clothes Club');
+call insertNewInterestGroup('Photography Club','For all things photos',1,'02-22-2017');
+call insertNewInterestGroup('Spiderman Fans','Live and Die by the web',5,'02-22-2017');
+call insertNewInterestGroup('Tech Geeks','Self-explanatory.  We like tech && are geeks',8,'02-22-2017');
+call insertNewInterestGroup('Refined Music People','pish-posh',3,'02-22-2017');
+call insertNewInterestGroup('Clothes Club','forever 22 i guess',1,'02-22-2017');
 
 
---We  have userAccounts joining interestgroups
+--We have userAccounts joining interestgroups
 INSERT INTO Joins
 	(joinDate, userID, groupname)
 VALUES
-	('02-22-2018', 1, 'Photography Club'),
 	('02-21-2018', 2, 'Photography Club'),
 	('02-24-2018', 3, 'Photography Club'),
 	('02-22-2018', 4, 'Photography Club'),
-	('02-20-2018', 1, 'Clothes Club'),
 	('02-27-2018', 2, 'Clothes Club'),
-	('02-15-2018', 3, 'Refined Music People'),
 	('02-17-2018', 4, 'Refined Music People'),
-	('01-22-2018', 5, 'Spiderman Fans'),
 	('01-21-2018', 6, 'Spiderman Fans'),
 	('01-24-2018', 7, 'Spiderman Fans'),
-	('01-22-2018', 8, 'Tech Geeks'),
 	('01-20-2018', 9, 'Tech Geeks'),
 	('01-27-2018', 10, 'Clothes Club'),
 	('01-15-2018', 11, 'Refined Music People'),
 	('01-17-2018', 12, 'Refined Music People'),
 	('04-14-2017', 48, 'Refined Music People');
-
 
 INSERT INTO OrganizedEvent
 	(eventDate,venue,organizer)
@@ -785,64 +953,61 @@ VALUES
 --LoanerItem current set as each loaner has 1 item on loan.  ItemID ranges from 100 to 149 inclusive
 -- The first 10 items have an item description
 INSERT INTO LoanerItem
-	(itemName,value,itemDescription,userID)
+	(itemName,value,itemDescription,userID,loanFee,loanDuration)
 VALUES
-	('Fuji Camera', 500, 'Hello All, renting out a immaculate condition Camera, lightly used without usage mark. Shutter click less the 3k. Comes with all standard accessories. Self collect only at Blk 421 Hougang Ave 10, low ballers stayout.', 1),
-	('iPad Pro', 200, 'As good as new with no signs if usage, item in perfect condition, bought on 17th June 2017 Locally, finest tempered glass on since bought. Comes with warranty,  box and all standard accessories. Will throw in Apple original pencil, 3rd party book case.', 2),
-	('Toshiba Laptop', 600, 'Very good condition, Well kept and still looks new, Condition 9/10, No Battery, Intel Core(TM) 2 Duo CPU T6600 @ 2.2 GHz, DDR2 SDRAM, HDD 500GB, Memory 2GB, Windows 7 Professional', 3),
-	('Sony Headphones', 300, 'Hello renting a as good as new headphone , used less then 1 hr. Renting as seldom used. Comes with all standard accessories . Item is perfect conditioning with zero usage marks. Item is bought from Expansys on 24th Nov 2018. Price is firm and Low baller will be ignored.  First offer first serve . Thank you ', 4),
-	('Canon Camera Lens', 900, 'Hello all renting a full working condition lens with no box,  receipt,  warranty.  Item physical condition is 8/10.  With only light users mark which is only visible on strong sunlight. ', 5),
-	('Black Tuxedo', 400, 'Who doesnt love a black tuxedo', 6),
-	('Pink Shoes', 200, 'Not only for pedophiles', 7),
-	('Metal Watch', 100, 'To impress that girl and make her think that you are rich', 8),
-	('Vintage Music CD', 100, 'Put this in your uni dorm to make visitors think that you are cultured', 9),
-	('Spiderman Movie', 60, 'Shoot webs and fight crime with your favourite neighbourhood superhero', 10);
+	('Fuji Camera', 500, 'Hello All, renting out a immaculate condition Camera, lightly used without usage mark. Shutter click less the 3k. Comes with all standard accessories. Self collect only at Blk 421 Hougang Ave 10, low ballers stayout.', 1, 50, 5),
+	('iPad Pro', 200, 'As good as new with no signs if usage, item in perfect condition, bought on 17th June 2017 Locally, finest tempered glass on since bought. Comes with warranty,  box and all standard accessories. Will throw in Apple original pencil, 3rd party book case.', 2, 40, 2),
+	('Toshiba Laptop', 600, 'Very good condition, Well kept and still looks new, Condition 9/10, No Battery, Intel Core(TM) 2 Duo CPU T6600 @ 2.2 GHz, DDR2 SDRAM, HDD 500GB, Memory 2GB, Windows 7 Professional', 3, 10, 1),
+	('Sony Headphones', 300, 'Hello renting a as good as new headphone , used less then 1 hr. Renting as seldom used. Comes with all standard accessories . Item is perfect conditioning with zero usage marks. Item is bought from Expansys on 24th Nov 2018. Price is firm and Low baller will be ignored.  First offer first serve . Thank you ', 4, 30, 3),
+	('Canon Camera Lens', 900, 'Hello all renting a full working condition lens with no box,  receipt,  warranty.  Item physical condition is 8/10.  With only light users mark which is only visible on strong sunlight. ', 5, 50, 5),
+	('Black Tuxedo', 400, 'Who doesnt love a black tuxedo', 6, 10, 1),
+	('Pink Shoes', 200, 'Not only for pedophiles', 7, 0, 2),
+	('Metal Watch', 100, 'To impress that girl and make her think that you are rich', 8, 5, 3),
+	('Vintage Music CD', 100, 'Put this in your uni dorm to make visitors think that you are cultured', 9, 1, 10),
+	('Spiderman Movie', 60, 'Shoot webs and fight crime with your favourite neighbourhood superhero', 10, 2, 3);
 INSERT INTO LoanerItem
-	(itemName,value,userID)
+	(itemName,value,userID, loanFee, loanDuration)
 VALUES
-	('Fuji Camera', 100, 11),
-	('iPad Pro', 900, 12),
-	('Toshiba Laptop', 100, 13),
-	('Sony Headphones', 900, 14),
-	('Canon Camera Lens', 600, 15),
-	('Black Tuxedo', 700, 16),
-	('Pink Shoes', 100, 17),
-	('Metal Watch', 100, 18),
-	('Vintage Music CD', 500, 19),
-	('Spiderman Movie', 700, 20),
-	--
-	('Fuji Camera', 100, 21),
-	('iPad Pro', 500, 22),
-	('Toshiba Laptop', 200, 23),
-	('Sony Headphones', 800, 24),
-	('Canon Camera Lens', 700, 25),
-	('Black Tuxedo', 700, 26),
-	('Pink Shoes', 400, 27),
-	('Metal Watch', 100, 28),
-	('Vintage Music CD', 700, 29),
-	('Spiderman Movie', 500, 30),
-	--
-	('Fuji Camera', 500, 31),
-	('iPad Pro', 700, 32),
-	('Toshiba Laptop', 200, 33),
-	('Sony Headphones', 800, 34),
-	('Canon Camera Lens', 900, 35),
-	('Black Tuxedo', 700, 36),
-	('Pink Shoes', 600, 37),
-	('Metal Watch', 500, 38),
-	('Vintage Music CD', 400, 39),
-	('Spiderman Movie', 600, 40),
-	--
-	('Fuji Camera', 600, 41),
-	('iPad Pro', 600, 42),
-	('Toshiba Laptop', 700, 43),
-	('Sony Headphones', 900, 44),
-	('Canon Camera Lens', 600, 45),
-	('Black Tuxedo', 900, 46),
-	('Pink Shoes', 800, 47),
-	('Metal Watch', 600, 48),
-	('Vintage Music CD', 900, 49),
-	('Spiderman Movie', 200, 50);
+	('Fuji Camera', 100, 11, 10, 2),
+	('iPad Pro', 900, 12, 100, 6),
+	('Toshiba Laptop', 100, 13, 50, 2),
+	('Sony Headphones', 900, 14, 50, 5),
+	('Canon Camera Lens', 600, 15, 30, 4),
+	('Black Tuxedo', 700, 16, 50, 7),
+	('Pink Shoes', 100, 17, 2, 5),
+	('Metal Watch', 100, 18, 0, 1),
+	('Vintage Music CD', 500, 19, 5, 7),
+	('Spiderman Movie', 700, 20, 10, 5),
+	('Fuji Camera', 100, 21, 10, 3),
+	('iPad Pro', 500, 22, 50, 4),
+	('Toshiba Laptop', 200, 23, 30, 3),
+	('Sony Headphones', 800, 24, 40, 5),
+	('Canon Camera Lens', 700, 25, 65, 3),
+	('Black Tuxedo', 700, 26, 10, 1),
+	('Pink Shoes', 400, 27, 3, 2),
+	('Metal Watch', 100, 28, 12, 3),
+	('Vintage Music CD', 700, 29, 30, 3),
+	('Spiderman Movie', 500, 30, 5, 2),
+	('Fuji Camera', 500, 31, 50, 5),
+	('iPad Pro', 700, 32, 100, 7),
+	('Toshiba Laptop', 200, 33, 20, 3),
+	('Sony Headphones', 800, 34, 55, 4),
+	('Canon Camera Lens', 900, 35, 56, 2),
+	('Black Tuxedo', 700, 36, 52, 6),
+	('Pink Shoes', 600, 37, 0, 1),
+	('Metal Watch', 500, 38, 0, 2),
+	('Vintage Music CD', 400, 39, 31, 2),
+	('Spiderman Movie', 600, 40, 41, 3),
+	('Fuji Camera', 600, 41, 36, 5),
+	('iPad Pro', 600, 42, 65, 4),
+	('Toshiba Laptop', 700, 43, 33, 3),
+	('Sony Headphones', 900, 44, 56, 8),
+	('Canon Camera Lens', 600, 45, 66, 3),
+	('Black Tuxedo', 900, 46, 56, 3),
+	('Pink Shoes', 800, 47, 65, 3),
+	('Metal Watch', 600, 48, 11, 2),
+	('Vintage Music CD', 900, 49, 32, 5),
+	('Spiderman Movie', 200, 50, 26, 1);
 
 
 INSERT INTO Advertisement
@@ -889,32 +1054,68 @@ VALUES
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 + 15 invoicedLoans.  The later 15 have reviews tagged to them
-INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) VALUES ('02-19-2018','10-16-2018',14,2,1,41,1),('02-14-2019','02-27-2019',15,6,2,42,2),('07-31-2018','08-19-2018',11,2,3,43,3),('05-31-2018','06-01-2018',12,5,4,44,4),('10-17-2018','10-30-2018',12,9,5,45,5),('01-14-2018','07-14-2018',17,5,6,46,6),('05-21-2019','05-26-2019',10,3,7,47,7),('10-04-2018','10-10-2018',19,3,8,48,8),('01-14-2019','08-26-2019',14,2,9,49,9),('05-05-2018','09-16-2018',14,7,10,50,10);
-INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) VALUES ('04-24-2018','06-07-2018',13,4,11,51,11),('10-08-2018','12-15-2019',13,8,12,52,12),('11-01-2019','02-29-2020',19,2,13,53,13),('01-24-2019','06-16-2019',10,7,14,54,14),('07-30-2017','05-13-2018',19,3,15,55,15),('04-18-2018','05-14-2018',15,6,16,56,16),('09-19-2018','10-12-2018',19,5,17,57,17),('10-07-2018','01-05-2019',16,2,18,58,18),('06-09-2018','06-06-2019',13,8,19,59,19),('09-09-2019','10-13-2019',12,8,20,60,20);
-INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) VALUES ('10-06-2018','10-11-2018',19,9,21,61,21),('03-10-2018','06-11-2018',19,5,22,62,22),('07-07-2018','08-02-2019',10,7,23,63,23),('09-09-2018','05-13-2019',16,10,24,64,24),('04-28-2018','07-22-2018',14,8,25,65,25),('09-04-2018','11-08-2018',11,9,26,66,26),('06-20-2018','07-22-2019',18,9,27,67,27),('04-12-2018','12-28-2018',13,7,28,68,28),('03-31-2018','05-12-2018',16,7,29,69,29),('05-20-2018','02-13-2019',15,5,30,70,30);
-INSERT INTO InvoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) VALUES ('02-09-2018','09-10-2018',10,3,31,71,31),('03-27-2018','07-10-2018',16,2,32,72,32),('10-29-2017','04-01-2018',10,9,33,73,33),('07-24-2019','07-28-2019',17,6,34,74,34),('09-24-2017','05-30-2018',10,3,35,75,35),('12-08-2019','02-18-2020',16,9,36,76,36),('01-18-2019','02-10-2020',16,5,37,77,37),('06-09-2018','07-25-2018',10,3,38,78,38),('07-24-2018','08-08-2019',10,8,39,79,39),('12-08-2019','01-05-2020',13,7,40,80,40);
-INSERT INTO InvoicedLoan
-	(startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID)
-VALUES
-	('02-14-2019', '02-27-2019', 15, 6, 1, 42, 1),
-	('07-31-2018', '11-19-2018', 11, 2, 2, 43, 2),
-	('05-31-2018', '06-02-2018', 12, 5, 3, 44, 3),
-	('10-17-2018', '10-18-2018', 12, 9, 4, 45, 4),
-	('01-14-2018', '02-14-2018', 17, 5, 1, 46, 1),
-	('06-21-2019', '06-26-2019', 10, 3, 2, 47, 2),
-	('10-04-2018', '10-10-2018', 19, 3, 3, 48, 3),
-	('01-14-2019', '01-26-2019', 14, 2, 1, 49, 1),
-	('05-05-2018', '06-16-2018', 14, 7, 2, 50, 2),
-	('04-24-2018', '04-25-2018', 12, 5, 3, 51, 3),
-	('09-17-2019', '09-30-2019', 12, 9, 1, 52, 1),
-	('02-14-2018', '03-14-2018', 17, 5, 2, 53, 2),
-	('03-10-2018', '03-13-2018', 10, 3, 3, 54, 3),
-	('09-10-2019', '10-10-2019', 19, 3, 1, 55, 1),
-	('08-14-2019', '08-26-2019', 14, 2, 2, 56, 2),
-	('09-05-2018', '09-16-2018', 14, 7, 3, 57, 3),
-	('02-05-2018', '02-06-2018', 14, 7, 2, 57, 2),
-	('07-10-2019', '07-10-2019', 19, 3, 1, 64, 1),
-	('02-03-2017', '02-04-2017', 13, 4, 3, 1, 3);
+
+call insertNewInvoicedLoan('02-19-2018', 1,41,1);
+call insertNewInvoicedLoan('02-14-2019',2,42,2);
+call insertNewInvoicedLoan('07-31-2018',3,43,3);
+call insertNewInvoicedLoan('05-31-2018',4,44,4);
+call insertNewInvoicedLoan('10-17-2018',5,45,5);
+call insertNewInvoicedLoan('01-14-2018',6,46,6);
+call insertNewInvoicedLoan('05-21-2019',7,47,7);
+call insertNewInvoicedLoan('10-04-2018',8,48,8);
+call insertNewInvoicedLoan('01-14-2019',9,49,9);
+call insertNewInvoicedLoan('05-05-2018',10,50,10);
+call insertNewInvoicedLoan('04-24-2018',11,51,11);
+call insertNewInvoicedLoan('10-08-2018',12,52,12);
+call insertNewInvoicedLoan('11-01-2019',13,53,13);
+call insertNewInvoicedLoan('01-24-2019',14,54,14);
+call insertNewInvoicedLoan('07-30-2017',15,55,15);
+call insertNewInvoicedLoan('04-18-2018',16,56,16);
+call insertNewInvoicedLoan('09-19-2018',17,57,17);
+call insertNewInvoicedLoan('10-07-2018',18,58,18);
+call insertNewInvoicedLoan('06-09-2018',19,59,19);
+call insertNewInvoicedLoan('09-09-2019',20,60,20);
+call insertNewInvoicedLoan('10-06-2018',21,61,21);
+call insertNewInvoicedLoan('03-10-2018',22,62,22);
+call insertNewInvoicedLoan('07-07-2018',23,63,23);
+call insertNewInvoicedLoan('09-09-2018',24,64,24);
+call insertNewInvoicedLoan('04-28-2018',25,65,25);
+call insertNewInvoicedLoan('09-04-2018',26,66,26);
+call insertNewInvoicedLoan('06-20-2018',27,67,27);
+call insertNewInvoicedLoan('04-12-2018',28,68,28);
+call insertNewInvoicedLoan('03-31-2018',29,69,29);
+call insertNewInvoicedLoan('05-20-2018',30,70,30);
+call insertNewInvoicedLoan('02-09-2018',31,71,31);
+call insertNewInvoicedLoan('03-27-2018',32,72,32);
+call insertNewInvoicedLoan('10-29-2017',33,73,33);
+call insertNewInvoicedLoan('07-24-2019',34,74,34);
+call insertNewInvoicedLoan('09-24-2017',35,75,35);
+call insertNewInvoicedLoan('12-08-2019',36,76,36);
+call insertNewInvoicedLoan('01-18-2019',37,77,37);
+call insertNewInvoicedLoan('06-09-2018',38,78,38);
+call insertNewInvoicedLoan('07-24-2018',39,79,39);
+call insertNewInvoicedLoan('12-08-2019',40,80,40);
+
+
+call insertNewInvoicedLoan('02-14-2019', 1, 42, 1);
+call insertNewInvoicedLoan('07-31-2018', 2, 43, 2);
+call insertNewInvoicedLoan('05-31-2018', 3, 44, 3);
+call insertNewInvoicedLoan('10-17-2018', 4, 45, 4);
+call insertNewInvoicedLoan('01-14-2018', 1, 46, 1);
+call insertNewInvoicedLoan('06-21-2019', 2, 47, 2);
+call insertNewInvoicedLoan('10-04-2018', 3, 48, 3);
+call insertNewInvoicedLoan('01-14-2019', 1, 49, 1);
+call insertNewInvoicedLoan('05-05-2018', 2, 50, 2);
+call insertNewInvoicedLoan('04-24-2018', 3, 51, 3);
+call insertNewInvoicedLoan('09-17-2019', 1, 52, 1);
+call insertNewInvoicedLoan('02-14-2018', 2, 53, 2);
+call insertNewInvoicedLoan('03-10-2018', 3, 54, 3);
+call insertNewInvoicedLoan('09-10-2019', 1, 55, 1);
+call insertNewInvoicedLoan('08-14-2019', 2, 56, 2);
+call insertNewInvoicedLoan('09-05-2018', 3, 57, 3);
+call insertNewInvoicedLoan('02-05-2018', 2, 57, 2);
+call insertNewInvoicedLoan('07-10-2019', 1, 64, 1);
+call insertNewInvoicedLoan('02-03-2017', 3, 1, 3);
 --date format is month, day, year
 
 
@@ -1193,4 +1394,3 @@ firstAndSecondAndThirdMostPopularAdvInYearMonth as
 )
 select *
 from firstAndSecondAndThirdMostPopularAdvInYearMonth;
-
