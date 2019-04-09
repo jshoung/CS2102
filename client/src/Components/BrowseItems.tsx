@@ -1,7 +1,7 @@
 import React, { Component } from 'react'
 import axios from 'axios'
 import _ from 'lodash'
-import { Card, CardDeck, Button, OverlayTrigger } from 'react-bootstrap'
+import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
 
 import { parseMDYLongDate } from '../util/moment'
 
@@ -35,19 +35,21 @@ class BrowseItems extends Component<MyProps, MyState> {
     this.setState({ ...data })
   }
 
-  renderLoans() {
-    return
-  }
-  render() {
+  renderAvailableItems(rows: any) {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
-    const { rows } = this.state.data
     return rows.map((row: any) => {
       const itemDescription = _.get(row, 'itemdescription')
 
       return (
         <CardDeck style={{ paddingBottom: '10px' }}>
-          <Card className="text-center" bg="dark" text="white" border="dark">
+          <Card
+            className="text-center"
+            bg="dark"
+            text="white"
+            border="dark"
+            style={{ width: '18rem' }}
+          >
             <Card.Body>
               <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
               <Card.Subtitle>
@@ -62,6 +64,19 @@ class BrowseItems extends Component<MyProps, MyState> {
         </CardDeck>
       )
     })
+  }
+  render() {
+    const { selectedUser } = this.props
+    const userId = _.get(selectedUser, 'userId')
+    const { rows } = this.state.data
+
+    return (
+      <Container>
+        <Row style={{ paddingBottom: '20px' }}>
+          <Col>{this.renderAvailableItems(rows)}</Col>
+        </Row>
+      </Container>
+    )
   }
 }
 

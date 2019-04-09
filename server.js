@@ -93,7 +93,7 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
                     left outer join
                     UserAccount UA
                     on UA.userId = IL.borrowerId
-                    where LI.userID = $1`,
+                    where LI.userID = $1 order by IL.endDate`,
     [req.body.userId],
   )
 
@@ -108,16 +108,20 @@ app.get('/items', [query('isListAvailable').isBoolean()], async (req, res) => {
     return res.status(400).json({ errors: errors.array() })
   }
   if (req.query.isListAvailable) {
+    const currentDate = moment().format('MM-DD-YYYY')
+
     data = await pool.query(
-      `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, UA.name as ownerName
-                    from LoanerItem LI
-                    left outer join 
-                    InvoicedLoan IL
-                    on LI.userID = IL.loanerID and LI.itemId = IL.itemID
-                    left outer join
-                    UserAccount UA
-                    on UA.userId = LI.userId
-                    where IL.invoiceID is NULL`,
+      `select distinct LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, max(IL.endDate), UA.name as ownerName
+      from LoanerItem LI
+      left outer join 
+      InvoicedLoan IL
+      on LI.userID = IL.loanerID and LI.itemId = IL.itemID
+      left outer join
+      UserAccount UA
+      on UA.userId = LI.userId
+      group by LI.itemid, LI.itemname, LI.value, LI.itemdescription, LI.userId, UA.name
+      having max(IL.endDate) < $1`,
+      [currentDate],
     )
   } else {
     data = await pool.query(
