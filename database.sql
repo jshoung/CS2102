@@ -222,6 +222,7 @@ create table Chooses
 	bidID integer unique,
 	userID integer not null,
 	advID integer unique,
+	chooseDate date not null,
 	primary key (userID, bidID, advID),
 	foreign key (bidID) references Bid (bidID) on delete cascade,
 	foreign key (userID) references Loaner (userID) on delete cascade,
@@ -229,17 +230,27 @@ create table Chooses
 );
 
 
-create or replace function checkMinimumIncrease()
+create or replace function checkSuitableBid()
 returns trigger as 
 $$
 	declare adMinimumIncrease integer;
 			previousHighestBid integer;
 			adMinimumPrice integer;
+			targetAdvOpening date;
+			targetAdvClosing date;
+			originalAdvertiser integer;
+			reportAgainstNum integer;
 	begin
-		select highestBid, minimumIncrease, minimumPrice
-		into previousHighestBid, adMinimumIncrease, adMinimumPrice
+		select highestBid, minimumIncrease, minimumPrice, openingDate, closingDate, advertiser
+		into previousHighestBid, adMinimumIncrease, adMinimumPrice, targetAdvOpening, targetAdvClosing, originalAdvertiser
 		from Advertisement
 		where advID = new.advID;
+	
+		select count(*)
+		into reportAgainstNum 
+		from report 
+		group by reportee 
+		having reportee = new.borrowerID;
 		
 		if (previousHighestBid is null and new.price < adMinimumPrice) then 
 			raise exception 'You have to at least bid the minimum price';
@@ -247,86 +258,48 @@ $$
 		elsif
 		(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
 			raise exception 'You have to at least bid the highest bid price, plus the minimum increase';
-		return null;
-		else
-		return new;
-	
-	end if;
-	end
-$$
-language plpgsql;
-
-create trigger trig1MinimumBidIncreaseTrig
-before
-update or insert on Bid
-for each row
-execute procedure checkMinimumIncrease();
-
-create or replace function checkBidMadeBetweenAdvOpenAndCloseDate()
-returns trigger as
-$$
-	declare targetAdvOpening date;
-			targetAdvClosing date;
-	begin
-		select openingDate, closingDate
-		into targetAdvOpening, targetAdvClosing
-		from advertisement
-		where advID = new.advID;
-
-		if (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
+			return null;
+		elsif (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
 			raise exception 'You can only bid when the adverisement is open';
 			return null;
-		else 
+		elsif (new.borrowerID = originalAdvertiser) then 
+			raise exception 'You cannot bid for your own advertisements';
+			return null;
+		elsif (reportAgainstNum > 5) then 
+			raise exception 'You have too many reports against you and so you are not allowed to bid for advertisements';
+			return null;
+		else
 			return new;
 		end if;
 	end
 $$
 language plpgsql;
 
-create trigger trig2CheckBidMadeBetweenAdvOpenAndCloseDate
+create trigger trig1SuitableBidTrig
 before
 update or insert on Bid
 for each row
-execute procedure checkBidMadeBetweenAdvOpenAndCloseDate();
+execute procedure checkSuitableBid();
 
 
-create or replace function checkUnableToBidForYourOwnAdvertisement()
-returns trigger as 
-$$
-	declare originalAdvertiser integer;
-	begin
-		select advertiser
-		into originalAdvertiser
-		from Advertisement
-		where advID = new.advID;
-		if (new.borrowerID = originalAdvertiser) then 
-			raise exception 'You cannot bid for your own advertisements';
-		return null;
-		else
-		return new;
-	end if;
-	
-	end
-$$
-language plpgsql;
-
-create trigger trig3CheckUnableToBidForYourOwnAdvertisement
-before
-update or insert on Bid
-for each row
-execute procedure checkUnableToBidForYourOwnAdvertisement();
-
-
-create or replace function checkChoosesYourOwnAdvertisementAndCorrectBid()
+create or replace function checkChoosesYourOwnAdvertisementAndCorrectBidAndAtLeast3Bids()
 returns trigger as 
 $$
 	declare creatorID integer;
+			numBids integer;
+			advertisementClosingDate date;
+			loanStartDate date;
 	begin
-		select advertiser
-		into creatorID
-	
+		select advertiser, closingDate, startdate
+		into creatorID, advertisementClosingDate, loanStartDate
 		from Advertisement
 		where advID = new.advID;
+	
+		select count(bidID)as numBidsTemp
+		from bid 
+		into numBids
+		group by advID
+		having advID = new.advID;
 	
 		if (new.userID != creatorID) then 
 			raise exception 'You can only choose bids that you created the advertisements for';
@@ -335,7 +308,13 @@ $$
 		(select bidID
 		from Bid
 		where advID = new.advID)  then 
-				raise exception 'You can only choose the bids for your own advertisement';
+			raise exception 'You can only choose the bids for your own advertisement';
+			return null;
+		elsif (numBids < 3 and new.chooseDate <= advertisementClosingDate) then 
+			raise exception 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes';
+			return null;
+		elsif (new.chooseDate >= loanStartDate) then 
+			raise exception  'You are unable to choose a bid when the loan was supposed to have already begun';
 			return null;
 		else
 			return new;
@@ -344,11 +323,11 @@ $$
 $$
 language plpgsql;
 
-create trigger trig1CheckChoosesYourOwnAdvertisementAndCorrectBid
+create trigger trig1CheckChoosesYourOwnAdvertisementAndCorrectBidAndAtLeast3Bids
 before
 update or insert on Chooses
 for each row
-execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid();
+execute procedure checkChoosesYourOwnAdvertisementAndCorrectBidAndAtLeast3Bids();
 
 
 create or replace function checkReviewAfterLoan()
@@ -665,7 +644,7 @@ execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate
 
 drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
 
-create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer)
+create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer, newChooseDate date)
 as
 $$
 	declare newStartDate date;
@@ -679,8 +658,8 @@ $$
 			newBorrowerID integer; --can see from the bidID
 			
 	begin	
-		insert into chooses (bidID, userID, advID) values 
-		(newBidID, newUserID, newAdvID);
+		insert into chooses (bidID, userID, advID, chooseDate) values 
+		(newBidID, newUserID, newAdvID, newChooseDate);
 		
 		select startDate, endDate, penalty, loanDuration, advertiser, itemID
 		into newStartDate, newEndDate, newPenalty, newLoanDuration, newLoanerID, newItemID
@@ -1237,7 +1216,8 @@ call insertNewInvoicedLoan('07-10-2019', 1, 64, 1);
 call insertNewInvoicedLoan('02-03-2017', 3, 1, 3);
 --date format is month, day, year
 
-call insertNewChooses(5,2,2);
+call insertNewChooses(5,2,2, '10-03-2019');
+
 
 INSERT INTO UserReviewItem
  	(userID,itemOwnerID,itemID,reviewComment,reviewDate,rating,invoiceID)
