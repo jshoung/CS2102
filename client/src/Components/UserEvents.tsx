@@ -65,15 +65,15 @@ class UserEvents extends Component<MyProps, MyState> {
     })
   }
 
-  async handleDeleteGroup(groupName: string) {
+  async handleDeleteEvent(eventId: string) {
     await axios
-      .delete('/interestgroups', {
+      .delete('/events', {
         params: {
-          groupName,
+          eventId,
         },
       })
       .catch((error) => {
-        this.showErrorModal(error.response.data.errors.hint)
+        this.showErrorModal(error.toString())
       })
 
     this.fetchUserEvents()
@@ -92,6 +92,7 @@ class UserEvents extends Component<MyProps, MyState> {
       const organizer = _.get(row, 'organizer')
       const eventDate = _.get(row, 'eventdate')
       const venue = _.get(row, 'venue')
+      const eventId = _.get(row, 'eventid')
 
       return (
         <CardDeck style={{ paddingBottom: '10px' }}>
@@ -103,9 +104,7 @@ class UserEvents extends Component<MyProps, MyState> {
             style={{ width: '18rem' }}
           >
             <Card.Body>
-              <Card.Title>
-                {eventName} <Icon.Edit style={{ cursor: 'pointer' }} />
-              </Card.Title>
+              <Card.Title>{eventName}</Card.Title>
               <Card.Subtitle>{`Organized by ${organizer} `}</Card.Subtitle>
               <Card.Text>
                 {`Date of Event: ${parseMDYLongDate(eventDate)}`} <br />
@@ -116,7 +115,7 @@ class UserEvents extends Component<MyProps, MyState> {
               style={{ display: 'inline-flex', justifyContent: 'flex-end' }}
             >
               <Button
-                onClick={() => this.handleDeleteGroup(eventName)}
+                onClick={() => this.handleDeleteEvent(eventId)}
                 variant="danger"
                 size="sm"
               >

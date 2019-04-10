@@ -439,7 +439,7 @@ app.get('/users/events', [query('userId').isInt()], async (req, res) => {
   }
   let data = await pool.query(
     `
-      select OE.organizer, OE.eventDate, OE.venue, OE.eventName
+      select OE.organizer, OE.eventDate, OE.venue, OE.eventName, OE.eventID
 			from OrganizedEvent OE inner join Joins J on OE.organizer = J.groupName
 			where J.userID = $1;
     `,
@@ -484,6 +484,20 @@ app.post(
     res.send({ data })
   },
 )
+
+app.delete('/events', [query('eventId').isInt()], async (req, res) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() })
+  }
+  let data = await pool.query(
+    `
+      delete from OrganizedEvent where eventID = $1
+    `,
+    [req.query.eventId],
+  )
+  res.send({ data })
+})
 
 // *************************** //
 //        Miscellaneous        //
