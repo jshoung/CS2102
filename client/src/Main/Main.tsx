@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React, { Component, useReducer } from 'react'
 import * as _ from 'lodash'
 import axios from 'axios'
 import {
@@ -19,6 +19,7 @@ import * as Icon from 'react-feather'
 import AddItem from '../Components/AddItem'
 import NavBar from '../Components/NavBar'
 import UserInterestGroups from '../Components/UserInterestGroups'
+import UserEvents from '../Components/UserEvents'
 import InterestGroups from '../InterestGroups/InterestGroups'
 
 class Main extends Component {
@@ -151,6 +152,13 @@ class Main extends Component {
             toggleLoading={this.toggleLoading}
           />,
         )
+      case 'Events':
+        content.push(
+          <UserEvents
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+          />,
+        )
       default:
         break
     }
@@ -238,6 +246,15 @@ class Main extends Component {
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Your Groups
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Events"
+                      onSelect={() => this.changeTab('Events')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Events
                     </Nav.Link>
                   </Nav.Item>
                 </Nav>
