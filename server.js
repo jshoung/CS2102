@@ -448,6 +448,36 @@ app.get('/users/events', [query('userId').isInt()], async (req, res) => {
   res.send({ data })
 })
 
+app.post(
+  '/events',
+  [
+    body('organizer').isString(),
+    body('eventName').isString(),
+    body('eventDate').isString(),
+    body('venue').isString(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data = await pool.query(
+      `
+      INSERT INTO OrganizedEvent
+        (eventDate,eventName,venue,organizer)
+      values($1,$2,$3,$4)
+    `,
+      [
+        req.body.eventDate,
+        req.body.eventName,
+        req.body.venue,
+        req.body.organizer,
+      ],
+    )
+    res.send({ data })
+  },
+)
+
 // *************************** //
 //        Miscellaneous        //
 // *************************** //
