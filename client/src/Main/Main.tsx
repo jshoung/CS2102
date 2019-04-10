@@ -135,16 +135,7 @@ class Main extends Component {
                       <Icon.Edit style={{ cursor: 'pointer' }} />
                     </OverlayTrigger>
                   </Card.Title>
-                  <Card.Subtitle>
-                    Price: ${_.get(row, 'value')} <br />
-                    {borrowerName
-                      ? `Loaned to ${borrowerName} for $${loanFee} from ${parseMDYLongDate(
-                          startDate,
-                        )} to ${parseMDYLongDate(
-                          endDate,
-                        )} with penalty $${penalty}`
-                      : ''}
-                  </Card.Subtitle>
+                  <Card.Subtitle>Price: ${_.get(row, 'value')}</Card.Subtitle>
                   <Card.Text>
                     Description:{' '}
                     {itemDescription
@@ -152,6 +143,13 @@ class Main extends Component {
                       : ' - '}
                   </Card.Text>
                 </Card.Body>
+                <Card.Footer>
+                  <div>
+                    <Button variant="light" size="sm">
+                      Put Up For Loan
+                    </Button>
+                  </div>
+                </Card.Footer>
               </Card>
             </CardDeck>,
           )
