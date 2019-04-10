@@ -257,28 +257,27 @@ $$
 			where reportDate >= windowDate) as innerCall
 		group by reportee 
 		having reportee = new.borrowerID;
-		raise notice 'count is (%)', reportAgainstNum;
 		
 		if (previousHighestBid is null and new.price < adMinimumPrice) then 
 			raise exception 'You have to at least bid the minimum price'
-			using hint = 'You have to at least bid the minimum price';
+				using hint = 'You have to at least bid the minimum price';
 			return null;
 		elsif
 		(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
 			raise exception 'You have to at least bid the highest bid price, plus the minimum increase'
-			using hint = 'You have to at least bid the highest bid price, plus the minimum increase';
+				using hint = 'You have to at least bid the highest bid price, plus the minimum increase';
 			return null;
 		elsif (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
 			raise exception 'You can only bid when the adverisement is open'
-			using hint = 'You can only bid when the adverisement is open';
+				using hint = 'You can only bid when the adverisement is open';
 			return null;
 		elsif (new.borrowerID = originalAdvertiser) then 
 			raise exception 'You cannot bid for your own advertisements'
-			using hint = 'You cannot bid for your own advertisements';
+				using hint = 'You cannot bid for your own advertisements';
 			return null;
 		elsif (reportAgainstNum > 5) then 
 			raise exception 'You have too many reports against you in the past week, and so you are not allowed to bid for advertisements'
-			using hint = 'You have too many reports against you in the past week, and so you are not allowed to bid for advertisements';
+				using hint = 'You have too many reports against you in the past week, and so you are not allowed to bid for advertisements';
 			return null;
 		else
 			return new;
@@ -322,15 +321,15 @@ $$
 		from Bid
 		where advID = new.advID)  then 
 			raise exception 'You can only choose the bids for your own advertisement'
-      using hint = 'You can only choose the bids for your own advertisement';
+     			 using hint = 'You can only choose the bids for your own advertisement';
 			return null;
 		elsif (numBids < 3 and new.chooseDate <= advertisementClosingDate) then 
 			raise exception 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes'
-      using hint = 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes';
+     			 using hint = 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes';
 			return null;
 		elsif (new.chooseDate >= loanStartDate) then 
 			raise exception  'You are unable to choose a bid when the loan was supposed to have already begun'
-      using hint = 'You are unable to choose a bid when the loan was supposed to have already begun';
+     			 using hint = 'You are unable to choose a bid when the loan was supposed to have already begun';
 			return null;
 		else
 			return new;
@@ -358,7 +357,7 @@ $$
 	
 		if (new.reviewDate < invoiceDate) then 
 			raise exception 'Reviews cannot be written before the loan begins'
-			using hint = 'Reviews cannot be written before the loan begins';
+				using hint = 'Reviews cannot be written before the loan begins';
 			return null;
 		else
 			return new;
@@ -386,7 +385,7 @@ $$
 	
 		if (new.userID != invoiceOwner) then 
 			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses'
-			using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
+				using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
 			return null;
 		else
 			return new;
@@ -410,21 +409,21 @@ $$
 		from InvoicedLoan
 		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
 			raise exception  'You cannot begin a loan when that item is on loan during that time'
-      using hint = 'You cannot begin a loan when that item is on loan during that time';
+    			  using hint = 'You cannot begin a loan when that item is on loan during that time';
 			return null;
 		elsif
 		(select max(invoiceID)
 		from InvoicedLoan
 		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
 			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time'
-      using hint = 'You cannot have an item on loan when that item is on loan to someone else during that time';
+     			 using hint = 'You cannot have an item on loan when that item is on loan to someone else during that time';
 			return null;
 		elsif
 		(select max(invoiceID)
 		from InvoicedLoan
 		where new.startDate <= startDate and new.endDate >= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
 			raise exception 'You cannot have an item on loan when that item is on loan to someone else within that time'
-      using hint = 'You cannot have an item on loan when that item is on loan to someone else within that time';
+     			 using hint = 'You cannot have an item on loan when that item is on loan to someone else within that time';
 			return null;
 		else
 			return new;
@@ -475,19 +474,22 @@ $$
 		elsif (select max(advID)
 		from Advertisement
 		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
-			raise exception  'You cannot begin a loan when that item is advertised to be on loan during that time';
+			raise exception  'You cannot begin a loan when that item is advertised to be on loan during that time'
+				using hint = 'You cannot begin a loan when that item is advertised to be on loan during that time';
 			return null;
 		elsif
 		(select max(advID)
 		from Advertisement
 		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
-			raise exception 'You cannot have an item on loan when that item is advertised to be on loan during that time';
+			raise exception 'You cannot have an item on loan when that item is advertised to be on loan during that time'
+				using hint = 'You cannot have an item on loan when that item is advertised to be on loan during that time';
 			return null;
 		elsif
 		(select max(advID)
 		from Advertisement
 		where new.startDate <= startDate and new.endDate >= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
-			raise exception 'You cannot have an item on loan when that item is advertised to be on loan within that time';
+			raise exception 'You cannot have an item on loan when that item is advertised to be on loan within that time'
+				using hint = 'You cannot have an item on loan when that item is advertised to be on loan within that time';
 			return null;
 		else
 			return new;
@@ -511,19 +513,19 @@ $$
 		from advertisement
 		where new.startDate >= startDate and new.startDate <= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
 			raise exception  'You cannot advertise an item for a loan period that starts when it is currently already on loan for the same loan period'
-      using hint = 'You cannot advertise an item for a loan period that starts when it is currently already on loan for the same loan period';
+     		 	using hint = 'You cannot advertise an item for a loan period that starts when it is currently already on loan for the same loan period';
 			return null;
 		elsif(select max(advID)
 			from advertisement
 			where new.endDate >= startDate and new.endDate <= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
 			raise exception 'You cannot advertise an item for a loan period that ends when it is currently already being advertised for the same loan period'
-      using hint = 'You cannot advertise an item for a loan period that ends when it is currently already being advertised for the same loan period';
+      			using hint = 'You cannot advertise an item for a loan period that ends when it is currently already being advertised for the same loan period';
 			return null;
 		elsif(select max(advID)
 			from advertisement
 			where new.startDate <= startDate and new.endDate >= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
 			raise exception 'You cannot advertise an item for a loan period that is currently already being advertised for the same loan period'
-      using hint = 'You cannot advertise an item for a loan period that is currently already being advertised for the same loan period';
+     			 using hint = 'You cannot advertise an item for a loan period that is currently already being advertised for the same loan period';
 			return null;
 		else
 			return new;
@@ -546,17 +548,20 @@ $$
 		if(select max(loanerID)
 		from invoicedLoan
 		where new.startDate >= startDate and new.startDate <= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
-			raise exception  'You cannot advertise an item for a loan period that start when it is currently already on loan for that period';
+			raise exception  'You cannot advertise an item for a loan period that start when it is currently already on loan for that period'
+				using hint = 'You cannot advertise an item for a loan period that start when it is currently already on loan for that period';
 			return null;
 		elsif(select max(loanerID)
 			from invoicedLoan
 			where new.endDate >= startDate and new.endDate <= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
-			raise exception 'You cannot advertise an item for a loan period that ends when it is currently already on loan for that period';
+			raise exception 'You cannot advertise an item for a loan period that ends when it is currently already on loan for that period'
+				using hint =  'You cannot advertise an item for a loan period that ends when it is currently already on loan for that period';
 			return null;
 		elsif(select max(loanerID)
 			from invoicedLoan
 			where new.startDate <= startDate and new.endDate >= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
-			raise exception 'You cannot advertise an item for a loan period that is currently already on loan for that period';
+			raise exception 'You cannot advertise an item for a loan period that is currently already on loan for that period'
+				using hint = 'You cannot advertise an item for a loan period that is currently already on loan for that period';
 			return null;
 		else
 			return new;
@@ -619,7 +624,7 @@ $$
 		
 		if(currentGroupAdminID != new.groupAdminID and (successorID is null) ) then 
 			raise exception 'The new group admin has to be have joined this group'
-			using hint = 'The new group admin has to be have joined this group';
+				using hint = 'The new group admin has to be have joined this group';
 			return null;
 		else
 			return new;
@@ -648,13 +653,13 @@ $$
 	
 		if(new.creationDate != currentCreationDate) then 
 			raise exception 'Creation date should never be changed'
-			using hint = 'Creation date should never be changed';
+				using hint = 'Creation date should never be changed';
 
 			return null;
 	
 		elsif(new.lastModifiedBy != currentAdminID)then 
 			raise exception 'Only the group admin can make changes to group details'
-      using hint = 'Only the group admin can make changes to group details';
+      			using hint = 'Only the group admin can make changes to group details';
 			return null;
 		else
 			return new;
