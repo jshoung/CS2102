@@ -510,7 +510,7 @@ for each row
 execute procedure checkInvoicedLoanClashWithCurrentAdvertisement();
 
 
-create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans()
+create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash()
 returns trigger as 
 $$
 	begin

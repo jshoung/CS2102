@@ -49,7 +49,6 @@ class Main extends Component {
     )
     payload = (await axios.get('/advertisements')).data
     this.setState({advertisements: payload.data.rows})
-    console.log(payload.data.rows)
     payload = (await axios.get('/items')).data
     this.setState({items: payload.data.rows})
   }
