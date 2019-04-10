@@ -134,6 +134,7 @@ create table InvoicedLoan
 	loanerID integer not null,
 	borrowerID integer not null,
 	itemID integer,
+	isReturned boolean default null,
 	primary key (invoiceID),
 	foreign key (loanerID)references Loaner (userID) on delete cascade,
 	foreign key (borrowerID) references Borrower (userID) on delete cascade,
@@ -407,21 +408,21 @@ $$
 	begin
 		if (select max(invoiceID)
 		from InvoicedLoan
-		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
+		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID and new.invoiceID != invoiceID) is not null then 
 			raise exception  'You cannot begin a loan when that item is on loan during that time'
     			  using hint = 'You cannot begin a loan when that item is on loan during that time';
 			return null;
 		elsif
 		(select max(invoiceID)
 		from InvoicedLoan
-		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
+		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID and new.invoiceID != invoiceID) is not null then 
 			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time'
      			 using hint = 'You cannot have an item on loan when that item is on loan to someone else during that time';
 			return null;
 		elsif
 		(select max(invoiceID)
 		from InvoicedLoan
-		where new.startDate <= startDate and new.endDate >= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
+		where new.startDate <= startDate and new.endDate >= endDate and new.loanerID = loanerID and new.itemID = itemID and new.invoiceID != invoiceID) is not null then 
 			raise exception 'You cannot have an item on loan when that item is on loan to someone else within that time'
      			 using hint = 'You cannot have an item on loan when that item is on loan to someone else within that time';
 			return null;
@@ -434,7 +435,7 @@ language plpgsql;
 
 create trigger trig1CheckInvoicedLoanClash
 before
-update or insert on InvoicedLoan
+insert or update on InvoicedLoan
 for each row
 execute procedure checkLoanDateClash();
 
@@ -675,7 +676,7 @@ for each row
 execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate();
 
 -- Procedures
-drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses;
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses, updateStatusOfLoanedItem;
 
 create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer, newChooseDate date)
 as
@@ -799,6 +800,18 @@ $$
 		(newStartDate, newEndDate, newPenalty, newLoanFee, newLoanerID, newBorrowerID, newItemID);
 		
 	commit;
+	end;
+$$
+language plpgsql;
+
+
+create or replace procedure updateStatusOfLoanedItem(newIsReturned boolean, newInvoiceID integer)
+as
+$$		
+	begin
+		update invoicedLoan
+		set isReturned = newIsReturned
+		where invoiceID = newInvoiceID;		
 	end;
 $$
 language plpgsql;
@@ -1244,6 +1257,67 @@ call insertNewInvoicedLoan('02-03-2017', 3, 1, 3);
 
 call insertNewChooses(5,2,2, '10-03-2019');
 
+call updateStatusOfLoanedItem(True, 1);
+call updateStatusOfLoanedItem(True, 2);
+call updateStatusOfLoanedItem(True, 3);
+call updateStatusOfLoanedItem(True, 4);
+call updateStatusOfLoanedItem(True, 5);
+call updateStatusOfLoanedItem(True, 6);
+call updateStatusOfLoanedItem(True, 7);
+call updateStatusOfLoanedItem(True, 8);
+call updateStatusOfLoanedItem(True, 9);
+call updateStatusOfLoanedItem(True,10);
+call updateStatusOfLoanedItem(True,11);
+call updateStatusOfLoanedItem(True,12);
+call updateStatusOfLoanedItem(True,13);
+call updateStatusOfLoanedItem(True,14);
+call updateStatusOfLoanedItem(True,15);
+call updateStatusOfLoanedItem(True,16);
+call updateStatusOfLoanedItem(True,17);
+call updateStatusOfLoanedItem(True,18);
+call updateStatusOfLoanedItem(True,19);
+call updateStatusOfLoanedItem(True,20);
+call updateStatusOfLoanedItem(True,21);
+call updateStatusOfLoanedItem(True,22);
+call updateStatusOfLoanedItem(True,23);
+call updateStatusOfLoanedItem(True,24);
+call updateStatusOfLoanedItem(True,25);
+call updateStatusOfLoanedItem(True,26);
+call updateStatusOfLoanedItem(True,27);
+call updateStatusOfLoanedItem(True,28);
+call updateStatusOfLoanedItem(True,29);
+call updateStatusOfLoanedItem(True,30);
+call updateStatusOfLoanedItem(True,31);
+call updateStatusOfLoanedItem(True,32);
+call updateStatusOfLoanedItem(True,33);
+call updateStatusOfLoanedItem(True,34);
+call updateStatusOfLoanedItem(True,35);
+call updateStatusOfLoanedItem(True,36);
+call updateStatusOfLoanedItem(True,37);
+call updateStatusOfLoanedItem(True,38);
+call updateStatusOfLoanedItem(True,39);
+call updateStatusOfLoanedItem(True,40);
+call updateStatusOfLoanedItem(True,41);
+call updateStatusOfLoanedItem(True,42);
+call updateStatusOfLoanedItem(True,43);
+call updateStatusOfLoanedItem(True,44);
+call updateStatusOfLoanedItem(True,45);
+call updateStatusOfLoanedItem(True,46);
+call updateStatusOfLoanedItem(True,47);
+call updateStatusOfLoanedItem(True,48);
+call updateStatusOfLoanedItem(True,49);
+call updateStatusOfLoanedItem(True,50);
+call updateStatusOfLoanedItem(True,51);
+call updateStatusOfLoanedItem(True,52);
+call updateStatusOfLoanedItem(True,53);
+call updateStatusOfLoanedItem(True,54);
+call updateStatusOfLoanedItem(True,55);
+call updateStatusOfLoanedItem(True,56);
+call updateStatusOfLoanedItem(True,57);
+call updateStatusOfLoanedItem(True,58);
+call updateStatusOfLoanedItem(True,59);
+call updateStatusOfLoanedItem(True,60);
+
 
 INSERT INTO UserReviewItem
  	(userID,itemOwnerID,itemID,reviewComment,reviewDate,rating,invoiceID)
@@ -1520,3 +1594,5 @@ firstAndSecondAndThirdMostPopularAdvInYearMonth as
 )
 select *
 from firstAndSecondAndThirdMostPopularAdvInYearMonth;
+
+select *  from invoicedloan;
