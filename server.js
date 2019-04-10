@@ -429,6 +429,54 @@ app.post(
 )
 
 // *************************** //
+//       Advertisements        //
+// *************************** //
+
+app.get('/advertisements', async (req, res) => {
+  const data = await pool.query('select * from advertisement')
+
+  res.send({ data })
+})
+
+app.get('/items', async (req, res) => {
+  const data = await pool.query('select * from loanerItem')
+
+  res.send({ data })
+})
+
+app.post(
+  '/insertbid',
+  [
+    body('borrowerId').isInt(),
+    body('advId').isInt(),
+    body('bidPrice').isInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    const currentDate = moment().format('DD-MM-YYYY')
+    console.log(req.body.borrowerId)
+    console.log(req.body.advId)
+    console.log(currentDate)
+    console.log(req.body.bidPrice)
+    let data = await pool.query(
+      `
+      call insertNewBid($1, $2, $3, $4)
+    `,
+      [
+        req.body.borrowerId,
+        req.body.advId,
+        currentDate,
+        req.body.bidPrice,
+      ],
+    ).catch(err => console.log(err))
+    res.send({ data })
+  },
+)
+
+// *************************** //
 //           Events            //
 // *************************** //
 

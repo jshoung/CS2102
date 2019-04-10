@@ -1,3 +1,4 @@
+set datestyle = "mdy";
 -- delete tables if already exists
 DROP TABLE IF EXISTS UserAccount
 CASCADE;
@@ -1160,7 +1161,7 @@ VALUES
 	('Spiderman Movie', 200, 50, 26, 1);
 
 call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 1, 1,5,'05-01-2020');
-call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 2, 2,6,'07-02-2020');
+call insertNewAdvertisement(12, '01-04-2019', '04-02-2019', 2, 2, 2,6,'04-02-2020');
 call insertNewAdvertisement(5, '04-02-2019', '05-04-2019', 2, 3, 3,7,'05-04-2021');
 call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 4, 4,5,'05-01-2020');
 call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 5, 5,6,'07-02-2020');
@@ -1168,7 +1169,6 @@ call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 6, 6,7,'05-04-202
 call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 7, 7,5,'05-01-2020');
 call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 8, 8,7,'07-02-2020');
 call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 9, 9,5,'05-04-2020');
-
 
 call insertNewBid(64, 1,'03-01-2019',10);
 call insertNewBid(49, 1,'03-02-2019',12);

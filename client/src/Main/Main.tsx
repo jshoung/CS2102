@@ -21,6 +21,8 @@ import NavBar from '../Components/NavBar'
 import UserInterestGroups from '../Components/UserInterestGroups'
 import UserEvents from '../Components/UserEvents'
 import InterestGroups from '../InterestGroups/InterestGroups'
+import Adverisements from '../Components/Advertisements';
+import ComplexQueries from '../Components/ComplexQueries';
 
 class Main extends Component {
   state = {
@@ -32,10 +34,12 @@ class Main extends Component {
     content: [],
     isLoading: false,
     pageToRender: 'Profile',
+    advertisements: [],
+    items: [],
   }
 
   async componentDidMount() {
-    const payload = (await axios.get(`/users`)).data
+    let payload = (await axios.get(`/users`)).data
 
     this.setState(
       {
@@ -43,6 +47,11 @@ class Main extends Component {
       },
       () => this.loadUsers(),
     )
+    payload = (await axios.get('/advertisements')).data
+    this.setState({advertisements: payload.data.rows})
+    console.log(payload.data.rows)
+    payload = (await axios.get('/items')).data
+    this.setState({items: payload.data.rows})
   }
 
   toggleLoading = (callback: () => void) => {
@@ -152,6 +161,18 @@ class Main extends Component {
             toggleLoading={this.toggleLoading}
           />,
         )
+        break
+      case 'Advertisements':
+        content.push(<Adverisements 
+          loadTabData={this.loadTabData}
+          currentUser={this.state.selectedUser}
+          userList={this.state.userList} 
+          items={this.state.items} 
+          advertisements={this.state.advertisements}/>)
+        break
+      case 'Complex Queries':
+        content.push(<ComplexQueries/>)
+        break
       case 'Events':
         content.push(
           <UserEvents
@@ -188,6 +209,10 @@ class Main extends Component {
 
     const items = await axios.post(`/users/items`, {
       userId,
+    })
+    const ads = (await axios.get('/advertisements')).data
+    this.setState({advertisements: ads.data.rows}, ()=>{
+      this.updateTab()
     })
     this.setState({ userItems: items.data.data.rows }, () => {
       this.updateTab()
@@ -250,6 +275,24 @@ class Main extends Component {
                   </Nav.Item>
                   <Nav.Item>
                     <Nav.Link
+                      eventKey="Advertisements"
+                      onSelect={() => this.changeTab('Advertisements')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Advertisements
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Complex Queries"
+                      onSelect={() => this.changeTab('Complex Queries')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Complex Queries
+                    </Nav.Link> 
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link>
                       eventKey="Events"
                       onSelect={() => this.changeTab('Events')}
                       disabled={_.isEmpty(selectedUser)}
