@@ -121,7 +121,8 @@ create table LoanerItem
 	loanDuration integer not null, -- in days
 	primary key (userID, itemID),
 	foreign key (userID) references Loaner (userID) on delete cascade,
-	check(loanFee >= 0 and loanDuration > 0)
+	check(loanFee >= 0),
+	check(loanDuration > 0)
 );
 
 create table InvoicedLoan
@@ -139,7 +140,8 @@ create table InvoicedLoan
 	foreign key (loanerID)references Loaner (userID) on delete cascade,
 	foreign key (borrowerID) references Borrower (userID) on delete cascade,
 	foreign key (loanerID, itemID) references LoanerItem (userID, itemID) on delete cascade,
-	check(startDate <= endDate and loanerID != borrowerID)
+	check(startDate <= endDate),
+	check(loanerID != borrowerID)
 );
 
 --we would like the ratings to be between 0 and 5
