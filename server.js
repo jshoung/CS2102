@@ -439,7 +439,7 @@ app.get('/users/events', [query('userId').isInt()], async (req, res) => {
   }
   let data = await pool.query(
     `
-      select OE.organizer, OE.eventDate, OE.venue
+      select OE.organizer, OE.eventDate, OE.venue, OE.eventName
 			from OrganizedEvent OE inner join Joins J on OE.organizer = J.groupName
 			where J.userID = $1;
     `,
