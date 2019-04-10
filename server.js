@@ -544,6 +544,23 @@ app.delete('/events', [query('eventId').isInt()], async (req, res) => {
 })
 
 // *************************** //
+//       Complex Queries       //
+// *************************** //
+
+app.get('/bigfan', async (req, res) => {
+  const data = await pool.query('select * from biggestFanAward')
+  res.send({ data })
+})
+app.get('/enemy', async (req, res) => {
+  const data = await pool.query('select * from worstEnemy')
+  res.send({ data })
+})
+app.get('/popular', async (req, res) => {
+  const data = await pool.query('select * from popularItem')
+  res.send({ data })
+})
+
+// *************************** //
 //        Miscellaneous        //
 // *************************** //
 

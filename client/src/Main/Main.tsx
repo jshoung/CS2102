@@ -170,7 +170,7 @@ class Main extends Component {
           advertisements={this.state.advertisements}/>)
         break
       case 'Complex Queries':
-        content.push(<ComplexQueries/>)
+        content.push(<ComplexQueries items={this.state.items} userList={this.state.userList}/>)
         break
       case 'Events':
         content.push(
@@ -283,21 +283,21 @@ class Main extends Component {
                   </Nav.Item>
                   <Nav.Item>
                     <Nav.Link
-                      eventKey="Complex Queries"
-                      onSelect={() => this.changeTab('Complex Queries')}
-                      disabled={_.isEmpty(selectedUser)}
-                    >
-                      Complex Queries
-                    </Nav.Link> 
-                  </Nav.Item>
-                  <Nav.Item>
-                    <Nav.Link>
                       eventKey="Events"
                       onSelect={() => this.changeTab('Events')}
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Events
                     </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Complex Queries"
+                      onSelect={() => this.changeTab('Complex Queries')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Complex Queries
+                    </Nav.Link> 
                   </Nav.Item>
                 </Nav>
               </Col>
