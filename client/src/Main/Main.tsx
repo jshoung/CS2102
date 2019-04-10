@@ -18,6 +18,7 @@ import * as Icon from 'react-feather'
 
 import AddItem from '../Components/AddItem'
 import NavBar from '../Components/NavBar'
+import UserInterestGroups from '../Components/UserInterestGroups'
 import InterestGroups from '../InterestGroups/InterestGroups'
 
 class Main extends Component {
@@ -143,6 +144,13 @@ class Main extends Component {
       case 'Loans':
         // content = <div>Loan name</div>
         break
+      case 'Interest Groups':
+        content.push(
+          <UserInterestGroups
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+          />,
+        )
       default:
         break
     }
@@ -221,6 +229,15 @@ class Main extends Component {
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Loans
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Interest Groups"
+                      onSelect={() => this.changeTab('Interest Groups')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Your Groups
                     </Nav.Link>
                   </Nav.Item>
                 </Nav>

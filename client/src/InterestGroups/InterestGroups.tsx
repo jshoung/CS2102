@@ -1,23 +1,9 @@
 import React, { Component } from 'react'
 import * as _ from 'lodash'
 import axios from 'axios'
-import {
-  Nav,
-  Dropdown,
-  Col,
-  Row,
-  Card,
-  Container,
-  CardDeck,
-  Spinner,
-  Button,
-  OverlayTrigger,
-  Popover,
-} from 'react-bootstrap'
-import * as Icon from 'react-feather'
+import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
 
-import AddItem from '../Components/AddItem'
-import NavBar from '../Components/NavBar'
+import { parseMDYLongDate } from '../util/moment'
 
 interface MyProps {
   selectedUser: object
@@ -26,6 +12,7 @@ interface MyProps {
 
 interface MyState {
   data: { rows: any }
+  userId: string
 }
 
 class InterestGroups extends Component<MyProps, MyState> {
@@ -33,21 +20,51 @@ class InterestGroups extends Component<MyProps, MyState> {
     super(props)
     this.state = {
       data: { rows: [] },
+      userId: '',
     }
   }
 
   async componentDidMount() {
-    const { data } = await axios.get(`/interestgroups`)
+    await this.fetchInterestGroups()
+  }
+
+  async fetchInterestGroups() {
+    const { selectedUser } = this.props
+    const selectedUserId = _.get(selectedUser, 'userId')
+    const { data } = await axios.get(`/interestgroups`, {
+      params: {
+        userId: selectedUserId,
+      },
+    })
 
     this.setState({
       ...data,
+      userId: selectedUserId,
     })
   }
 
+  async joinInterestGroup(userId: string, groupName: string) {
+    await axios.post('/joins', {
+      userId,
+      groupName,
+    })
+
+    this.fetchInterestGroups()
+  }
+
   renderInterestGroups(groupList: any) {
+    const { selectedUser } = this.props
+    const selectedUserId = _.get(selectedUser, 'userId')
+    if (selectedUserId != this.state.userId) {
+      this.fetchInterestGroups()
+    }
+
     return groupList.map((row: any) => {
       const groupName = _.get(row, 'groupname')
       const groupDescription = _.get(row, 'groupdescription')
+      const userId = _.get(row, 'userid')
+      const groupJoinDate = _.get(row, 'joindate')
+
       return (
         <CardDeck style={{ paddingBottom: '10px' }}>
           <Card
@@ -65,6 +82,21 @@ class InterestGroups extends Component<MyProps, MyState> {
                   : 'This group likes to be mysterious...'}
               </Card.Text>
             </Card.Body>
+            <Card.Footer>
+              {userId === selectedUserId ? (
+                `Joined on ${parseMDYLongDate(groupJoinDate)}`
+              ) : (
+                <Button
+                  onClick={() => {
+                    this.joinInterestGroup(selectedUserId, groupName)
+                  }}
+                  variant="light"
+                  size="sm"
+                >
+                  Join Group
+                </Button>
+              )}
+            </Card.Footer>
           </Card>
         </CardDeck>
       )
