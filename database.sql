@@ -122,7 +122,8 @@ create table LoanerItem
 	loanDuration integer not null, -- in days
 	primary key (userID, itemID),
 	foreign key (userID) references Loaner (userID) on delete cascade,
-	check(loanFee >= 0 and loanDuration > 0)
+	check(loanFee >= 0),
+	check(loanDuration > 0)
 );
 
 create table InvoicedLoan
@@ -135,11 +136,13 @@ create table InvoicedLoan
 	loanerID integer not null,
 	borrowerID integer not null,
 	itemID integer,
+	isReturned boolean default null,
 	primary key (invoiceID),
 	foreign key (loanerID)references Loaner (userID) on delete cascade,
 	foreign key (borrowerID) references Borrower (userID) on delete cascade,
 	foreign key (loanerID, itemID) references LoanerItem (userID, itemID) on delete cascade,
-	check(startDate <= endDate and loanerID != borrowerID)
+	check(startDate <= endDate),
+	check(loanerID != borrowerID)
 );
 
 --we would like the ratings to be between 0 and 5
@@ -175,22 +178,35 @@ create table Upvote
 );
 
 
--- perhaps a trigger can update the highest bidder and the highest bid, after a bid as been made to a adverstisement entry
+-- check startdate cannot clash with current item loans starts, and duration.
+-- new invoicedloans should not clash with ads too in this case
+
+--later the chooses will follow this adveretisement specs, and direct insert into loaner item.
 create table Advertisement
 (
 	advID serial,
 	highestBidder integer,
+	highestBid integer,
 	minimumPrice integer not null,
+	minimumIncrease integer not null,
 	openingDate date not null,
 	closingDate date not null,
-	minimumIncrease integer not null,
-	highestBid integer,
 	advertiser integer,
 	itemID integer,
+	penalty integer not null,  --default value is the loanerItem penalty, but there is no need to ensure it matches the value in loanerItem at all times.
+	loanDuration integer not null, --special duration for ad
+	startDate date not null, --special startdate for ads
+	endDate date not null,
+	itemName varchar(100) not null, --by default follows itemName and description in loanersItem
+	itemDescription varchar(8000) not null,
 	primary key (advID),
 	foreign key (advertiser) references Loaner(userID) on delete cascade,
 	foreign key (advertiser, itemID) references LoanerItem(userID, itemID) on delete cascade,
-	check(minimumIncrease > 0 and openingDate <= closingDate)
+	check(minimumIncrease > 0),
+	check(openingDate <= closingDate),
+	check(startDate > closingDate),
+	check(startDate < endDate),
+	check(endDate = startDate + interval '1' day * loanDuration)
 );
 
 
@@ -211,6 +227,7 @@ create table Chooses
 	bidID integer unique,
 	userID integer not null,
 	advID integer unique,
+	chooseDate date not null,
 	primary key (userID, bidID, advID),
 	foreign key (bidID) references Bid (bidID) on delete cascade,
 	foreign key (userID) references Loaner (userID) on delete cascade,
@@ -218,148 +235,118 @@ create table Chooses
 );
 
 
-create or replace function checkMinimumIncrease()
+create or replace function checkSuitableBid()
 returns trigger as 
 $$
 	declare adMinimumIncrease integer;
 			previousHighestBid integer;
 			adMinimumPrice integer;
+			targetAdvOpening date;
+			targetAdvClosing date;
+			originalAdvertiser integer;
+			reportAgainstNum integer;
+			windowDate date;
 	begin
-		select highestBid
-		into previousHighestBid
+		windowDate := new.bidDate - interval '1' day * 7;
+
+		select highestBid, minimumIncrease, minimumPrice, openingDate, closingDate, advertiser
+		into previousHighestBid, adMinimumIncrease, adMinimumPrice, targetAdvOpening, targetAdvClosing, originalAdvertiser
 		from Advertisement
 		where advID = new.advID;
 	
-		select minimumIncrease
-		into adMinimumIncrease
-		from Advertisement
-		where advID = new.advID;
-	
-		select minimumPrice
-		into adMinimumPrice
-		from Advertisement
-		where advID = new.advID;
-	
+		select count(*)
+		into reportAgainstNum 
+		from (select *
+			from report 
+			where reportDate >= windowDate) as innerCall
+		group by reportee 
+		having reportee = new.borrowerID;
+		
 		if (previousHighestBid is null and new.price < adMinimumPrice) then 
 			raise exception 'You have to at least bid the minimum price'
-			using hint = 'You have to at least bid the minimum price';
-
-		return null;
+				using hint = 'You have to at least bid the minimum price';
+			return null;
 		elsif
 		(previousHighestBid is not null and new.price < previousHighestBid + adMinimumIncrease) then 
 			raise exception 'You have to at least bid the highest bid price, plus the minimum increase'
-			using hint = 'You have to at least bid the highest bid price, plus the minimum increase';
-
-		return null;
-		else
-		return new;
-	
-	end if;
-	end
-$$
-language plpgsql;
-
-create trigger trig1MinimumBidIncreaseTrig
-before
-update or insert on Bid
-for each row
-execute procedure checkMinimumIncrease();
-
-create or replace function checkBidMadeBetweenAdvOpenAndCloseDate()
-returns trigger as
-$$
-	declare targetAdvOpening date;
-			targetAdvClosing date;
-	begin
-		select openingDate, closingDate
-		into targetAdvOpening, targetAdvClosing
-		from advertisement
-		where advID = new.advID;
-
-		if (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
-			raise exception 'You can only bid when the adverisement is open'
-			using hint = 'You can only bid when the adverisement is open';
+				using hint = 'You have to at least bid the highest bid price, plus the minimum increase';
 			return null;
-		else 
+		elsif (new.bidDate < targetAdvOpening or new.bidDate > targetAdvClosing) then
+			raise exception 'You can only bid when the adverisement is open'
+				using hint = 'You can only bid when the adverisement is open';
+			return null;
+		elsif (new.borrowerID = originalAdvertiser) then 
+			raise exception 'You cannot bid for your own advertisements'
+				using hint = 'You cannot bid for your own advertisements';
+			return null;
+		elsif (reportAgainstNum > 5) then 
+			raise exception 'You have too many reports against you in the past week, and so you are not allowed to bid for advertisements'
+				using hint = 'You have too many reports against you in the past week, and so you are not allowed to bid for advertisements';
+			return null;
+		else
 			return new;
 		end if;
 	end
 $$
 language plpgsql;
 
-create trigger trig2CheckBidMadeBetweenAdvOpenAndCloseDate
+create trigger trig1SuitableBidTrig
 before
 update or insert on Bid
 for each row
-execute procedure checkBidMadeBetweenAdvOpenAndCloseDate();
+execute procedure checkSuitableBid();
 
 
-create or replace function checkUnableToBidForYourOwnAdvertisement()
-returns trigger as 
-$$
-	declare originalAdvertiser integer;
-	begin
-		select advertiser
-		into originalAdvertiser
-		from Advertisement
-		where advID = new.advID;
-		if (new.borrowerID = originalAdvertiser) then 
-			raise exception 'You cannot bid for your own advertisements'
-			using hint = 'You cannot bid for your own advertisements';
-		return null;
-		else
-		return new;
-	end if;
-	
-	end
-$$
-language plpgsql;
-
-create trigger trig3CheckUnableToBidForYourOwnAdvertisement
-before
-update or insert on Bid
-for each row
-execute procedure checkUnableToBidForYourOwnAdvertisement();
-
-
-create or replace function checkChoosesYourOwnAdvertisementAndCorrectBid()
+create or replace function checkChoosesYourOwnAdvertisementAndCorrectBidAndAtLeast3Bids()
 returns trigger as 
 $$
 	declare creatorID integer;
+			numBids integer;
+			advertisementClosingDate date;
+			loanStartDate date;
 	begin
-		select advertiser
-		into creatorID
-	
+		select advertiser, closingDate, startdate
+		into creatorID, advertisementClosingDate, loanStartDate
 		from Advertisement
 		where advID = new.advID;
 	
-		if (new.userID != creatorID) then 
-
-			raise exception 'You can only choose bids that you created the advertisements for'
-			using hint = 'You can only choose bids that you created the advertisements for';
-	return null;
-	elsif new.bidID not in
-	(select bidID
-	from Bid
-	where advID = new.advID)
-	then 
-			raise exception 'You can only choose the bids for your own advertisement'
-			using hint = 'You can only choose the bids for your own advertisement';
-
-	return null;
-	else
-	return new;
-	end if;
+		select count(bidID)as numBidsTemp
+		from bid 
+		into numBids
+		group by advID
+		having advID = new.advID;
 	
+		if (new.userID != creatorID) then 
+			raise exception 'You can only choose bids that you created the advertisements for'
+      using hint = 'You can only choose bids that you created the advertisements for';
+			return null;
+		elsif new.bidID not in
+		(select bidID
+		from Bid
+		where advID = new.advID)  then 
+			raise exception 'You can only choose the bids for your own advertisement'
+     			 using hint = 'You can only choose the bids for your own advertisement';
+			return null;
+		elsif (numBids < 3 and new.chooseDate <= advertisementClosingDate) then 
+			raise exception 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes'
+     			 using hint = 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes';
+			return null;
+		elsif (new.chooseDate >= loanStartDate) then 
+			raise exception  'You are unable to choose a bid when the loan was supposed to have already begun'
+     			 using hint = 'You are unable to choose a bid when the loan was supposed to have already begun';
+			return null;
+		else
+			return new;
+		end if;
 	end
 $$
 language plpgsql;
 
-create trigger trig1CheckChoosesYourOwnAdvertisementAndCorrectBid
+create trigger trig1CheckChoosesYourOwnAdvertisementAndCorrectBidAndAtLeast3Bids
 before
 update or insert on Chooses
 for each row
-execute procedure checkChoosesYourOwnAdvertisementAndCorrectBid();
+execute procedure checkChoosesYourOwnAdvertisementAndCorrectBidAndAtLeast3Bids();
 
 
 create or replace function checkReviewAfterLoan()
@@ -374,7 +361,7 @@ $$
 	
 		if (new.reviewDate < invoiceDate) then 
 			raise exception 'Reviews cannot be written before the loan begins'
-			using hint = 'Reviews cannot be written before the loan begins';
+				using hint = 'Reviews cannot be written before the loan begins';
 			return null;
 		else
 			return new;
@@ -402,7 +389,7 @@ $$
 	
 		if (new.userID != invoiceOwner) then 
 			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses'
-			using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
+				using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
 			return null;
 		else
 			return new;
@@ -424,62 +411,175 @@ $$
 	begin
 		if (select max(invoiceID)
 		from InvoicedLoan
-		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID) is not null then 
+		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = loanerID and new.itemID = itemID and new.invoiceID != invoiceID) is not null then 
 			raise exception  'You cannot begin a loan when that item is on loan during that time'
-			using hint = 'You cannot begin a loan when that item is on loan during that time';
-	return null;
-	elsif
-	(select max(invoiceID)
-	from InvoicedLoan
-	where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID)
-	is not null then 
+    			  using hint = 'You cannot begin a loan when that item is on loan during that time';
+			return null;
+		elsif
+		(select max(invoiceID)
+		from InvoicedLoan
+		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = loanerID and new.itemID = itemID and new.invoiceID != invoiceID) is not null then 
 			raise exception 'You cannot have an item on loan when that item is on loan to someone else during that time'
-			using hint = 'You cannot have an item on loan when that item is on loan to someone else during that time';
-	return null;
-	else
-	return new;
-	end if;
-	
+     			 using hint = 'You cannot have an item on loan when that item is on loan to someone else during that time';
+			return null;
+		elsif
+		(select max(invoiceID)
+		from InvoicedLoan
+		where new.startDate <= startDate and new.endDate >= endDate and new.loanerID = loanerID and new.itemID = itemID and new.invoiceID != invoiceID) is not null then 
+			raise exception 'You cannot have an item on loan when that item is on loan to someone else within that time'
+     			 using hint = 'You cannot have an item on loan when that item is on loan to someone else within that time';
+			return null;
+		else
+			return new;
+		end if;
 	end
 $$
 language plpgsql;
 
 create trigger trig1CheckInvoicedLoanClash
 before
-update or insert on InvoicedLoan
+insert or update on InvoicedLoan
 for each row
 execute procedure checkLoanDateClash();
 
 
-create  or replace function checkNotAlreadyAdvertised()
+create or replace function checkInvoicedLoanClashWithCurrentAdvertisement()
+returns trigger as
+$$
+	declare correctBorrowerID integer;
+			correctLoanFee integer;
+			correspondingAdvID integer;
+			correspondingBidID integer;
+			
+			
+	--only the borrower who won the bid should be allowed to loan during that time.
+	begin
+		select advID
+		into correspondingAdvID
+		from advertisement
+		where new.loanerID = advertiser and new.itemID = itemID and new.startDate = startDate and new.endDate = endDate;
+	
+		select bidID 
+		into correspondingBidID
+		from chooses
+		where advID = correspondingAdvID;
+	
+		select borrowerID, price
+		into correctBorrowerID, correctLoanFee
+		from bid 
+		where bidID = correspondingBidID;
+		
+		
+		if (select max(advID)
+		from Advertisement
+		where new.startDate = startDate and new.endDate = endDate and new.loanerID = advertiser and new.itemID = itemID and new.borrowerID = correctBorrowerID and new.loanFee = correctLoanFee) is not null then 
+			--only the borrower who won the bid should be allowed to loan during that time, and only exactly that time, for that price
+			return new;
+		elsif (select max(advID)
+		from Advertisement
+		where new.startDate >= startDate and new.startDate <= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
+			raise exception  'You cannot begin a loan when that item is advertised to be on loan during that time'
+				using hint = 'You cannot begin a loan when that item is advertised to be on loan during that time';
+			return null;
+		elsif
+		(select max(advID)
+		from Advertisement
+		where new.endDate >= startDate and new.endDate <= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
+			raise exception 'You cannot have an item on loan when that item is advertised to be on loan during that time'
+				using hint = 'You cannot have an item on loan when that item is advertised to be on loan during that time';
+			return null;
+		elsif
+		(select max(advID)
+		from Advertisement
+		where new.startDate <= startDate and new.endDate >= endDate and new.loanerID = advertiser and new.itemID = itemID) is not null then 
+			raise exception 'You cannot have an item on loan when that item is advertised to be on loan within that time'
+				using hint = 'You cannot have an item on loan when that item is advertised to be on loan within that time';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig2CheckInvoicedLoanClashWithCurrentAdvertisement
+before
+update or insert on InvoicedLoan
+for each row
+execute procedure checkInvoicedLoanClashWithCurrentAdvertisement();
+
+
+create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans()
 returns trigger as 
 $$
 	begin
 		if(select max(advID)
 		from advertisement
-		where new.openingDate >= openingDate and new.openingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
-			raise exception  'You cannot advertise an item that is currently already being advertised'
-			using hint = 'You cannot advertise an item that is currently already being advertised';
+		where new.startDate >= startDate and new.startDate <= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
+			raise exception  'You cannot advertise an item for a loan period that starts when it is currently already on loan for the same loan period'
+     		 	using hint = 'You cannot advertise an item for a loan period that starts when it is currently already on loan for the same loan period';
 			return null;
 		elsif(select max(advID)
 			from advertisement
-			where new.closingDate >= openingDate and new.closingDate <= closingDate and new.advertiser = advertiser and new.itemID = itemID and new.highestBid = highestBid and new.advID != advID) is not null then 
-			raise exception 'You cannot advertise an item that is currently already being advertised'
-			using hint = 'You cannot advertise an item that is currently already being advertised';
+			where new.endDate >= startDate and new.endDate <= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
+			raise exception 'You cannot advertise an item for a loan period that ends when it is currently already being advertised for the same loan period'
+      			using hint = 'You cannot advertise an item for a loan period that ends when it is currently already being advertised for the same loan period';
+			return null;
+		elsif(select max(advID)
+			from advertisement
+			where new.startDate <= startDate and new.endDate >= endDate and new.advertiser = advertiser and new.itemID = itemID and new.advID != advID) is not null then 
+			raise exception 'You cannot advertise an item for a loan period that is currently already being advertised for the same loan period'
+     			 using hint = 'You cannot advertise an item for a loan period that is currently already being advertised for the same loan period';
 			return null;
 		else
-		return new;
+			return new;
 		end if;
-	
 	end
 $$
 language plpgsql;
 
-create trigger trig1CheckNotAlreadyAdvertised
+create trigger trig1CheckLoanDateWithinAdvertisementForTheSameItemDoesNotClash
 before
 update or insert on Advertisement
 for each row
-execute procedure checkNotAlreadyAdvertised();
+execute procedure checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash();
+
+
+create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans()
+returns trigger as 
+$$
+	begin
+		if(select max(loanerID)
+		from invoicedLoan
+		where new.startDate >= startDate and new.startDate <= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
+			raise exception  'You cannot advertise an item for a loan period that start when it is currently already on loan for that period'
+				using hint = 'You cannot advertise an item for a loan period that start when it is currently already on loan for that period';
+			return null;
+		elsif(select max(loanerID)
+			from invoicedLoan
+			where new.endDate >= startDate and new.endDate <= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
+			raise exception 'You cannot advertise an item for a loan period that ends when it is currently already on loan for that period'
+				using hint =  'You cannot advertise an item for a loan period that ends when it is currently already on loan for that period';
+			return null;
+		elsif(select max(loanerID)
+			from invoicedLoan
+			where new.startDate <= startDate and new.endDate >= endDate and new.advertiser = loanerID and new.itemID = itemID) is not null then 
+			raise exception 'You cannot advertise an item for a loan period that is currently already on loan for that period'
+				using hint = 'You cannot advertise an item for a loan period that is currently already on loan for that period';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig2CheckLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans
+before
+update or insert on Advertisement
+for each row
+execute procedure checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans();
+
 
 
 create  or replace function checkCreatorCannotLeave()
@@ -528,7 +628,7 @@ $$
 		
 		if(currentGroupAdminID != new.groupAdminID and (successorID is null) ) then 
 			raise exception 'The new group admin has to be have joined this group'
-			using hint = 'The new group admin has to be have joined this group';
+				using hint = 'The new group admin has to be have joined this group';
 			return null;
 		else
 			return new;
@@ -548,41 +648,22 @@ create  or replace function checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCr
 returns trigger as 
 $$
 	declare currentAdminID integer;
-			currentGroupName varchar(80);
 			currentCreationDate date;
-			currentGroupDescription varchar(8000);
 	begin
-		select groupAdminID
-		into currentAdminID
-		from interestGroup 
-		where groupName = new.groupName;
-	
-		select groupName
-		into currentGroupName
-		from interestGroup 
-		where groupName = new.groupName;
-		
-		select creationDate
-		into currentCreationDate
-		from interestGroup 
-		where groupName = new.groupName;
-		
-		select groupDescription
-		into currentGroupDescription
+		select groupAdminID, creationDate
+		into currentAdminID, currentCreationDate
 		from interestGroup 
 		where groupName = new.groupName;
 	
 		if(new.creationDate != currentCreationDate) then 
 			raise exception 'Creation date should never be changed'
-			using hint = 'Creation date should never be changed';
+				using hint = 'Creation date should never be changed';
 
 			return null;
 	
 		elsif(new.lastModifiedBy != currentAdminID)then 
-			raise notice 'new lastmodifed by is (%)', new.lastModifiedBy;
 			raise exception 'Only the group admin can make changes to group details'
-			using hint = 'Only the group admin can make changes to group details';
-			
+      			using hint = 'Only the group admin can make changes to group details';
 			return null;
 		else
 			return new;
@@ -598,8 +679,66 @@ for each row
 execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate();
 
 -- Procedures
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses, updateStatusOfLoanedItem;
 
-drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroup;
+create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer, newChooseDate date)
+as
+$$
+	declare newStartDate date;
+			newEndDate date;
+			newPenalty integer;
+			newLoanDuration integer;
+			newLoanerID integer; --should be the advertiser
+			newItemID integer; --should be the itemID of the advertisement item
+			
+			newLoanFee integer; -- bidprice, can see from the bidID
+			newBorrowerID integer; --can see from the bidID
+			
+	begin	
+		insert into chooses (bidID, userID, advID, chooseDate) values 
+		(newBidID, newUserID, newAdvID, newChooseDate);
+		
+		select startDate, endDate, penalty, loanDuration, advertiser, itemID
+		into newStartDate, newEndDate, newPenalty, newLoanDuration, newLoanerID, newItemID
+		from advertisement
+		where newAdvID = advID;
+	
+		select price, borrowerID
+		into newLoanFee, newBorrowerID
+		from bid
+		where newBidID = bidID;
+		
+	
+		insert into invoicedLoan (startDate,endDate,penalty,loanFee,loanerID,borrowerID,itemID) values 
+		(newStartDate, newEndDate, newPenalty, newLoanFee, newLoanerID, newBorrowerID, newItemID);
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
+
+create or replace procedure insertNewAdvertisement(newMinimumPrice integer,newOpeningDate date,newClosingDate date,newMinimumIncrease integer,newAdvertiser integer,newItemID integer, newLoanDuration integer, newStartDate date)
+as
+$$
+	declare newPenalty integer;
+			newItemName varchar(100);
+			newItemDescription varchar(8000);
+			newEndDate date;
+			
+	begin
+		newEndDate := newStartDate + interval '1' day * newLoanDuration;
+		select value, itemDescription, itemName
+		into newPenalty, newItemDescription,  newItemName
+		from loanerItem 
+		where newAdvertiser = userID and newItemID = itemID;
+		insert into Advertisement (highestBidder,highestBid,minimumPrice,openingDate,closingDate,minimumIncrease,advertiser,itemID, loanDuration, penalty, startDate, endDate, itemName, itemDescription) values 
+		(null,null,newMinimumPrice,newOpeningDate,newClosingDate,newMinimumIncrease,newAdvertiser,newItemID, newLoanDuration, newPenalty, newStartDate, newEndDate, newItemName, newItemDescription);
+		
+	commit;
+	end;
+$$
+language plpgsql;
 create or replace procedure insertNewInterestGroup(newGroupName varchar(80),newGroupDescription varchar(8000),newGroupAdminID integer,newCreationDate date)
 as
 $$
@@ -669,7 +808,17 @@ $$
 language plpgsql;
 
 
-drop function if exists getMembersInInterestGroup;
+create or replace procedure updateStatusOfLoanedItem(newIsReturned boolean, newInvoiceID integer)
+as
+$$		
+	begin
+		update invoicedLoan
+		set isReturned = newIsReturned
+		where invoiceID = newInvoiceID;		
+	end;
+$$
+language plpgsql;
+
 
 --userID from 1 to 100 inclusive
 INSERT INTO UserAccount
@@ -1010,21 +1159,16 @@ VALUES
 	('Vintage Music CD', 900, 49, 32, 5),
 	('Spiderman Movie', 200, 50, 26, 1);
 
+call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 1, 1,5,'05-01-2020');
+call insertNewAdvertisement(12, '01-04-2019', '04-02-2019', 2, 2, 2,6,'04-02-2020');
+call insertNewAdvertisement(5, '04-02-2019', '05-04-2019', 2, 3, 3,7,'05-04-2021');
+call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 4, 4,5,'05-01-2020');
+call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 5, 5,6,'07-02-2020');
+call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 6, 6,7,'05-04-2020');
+call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 7, 7,5,'05-01-2020');
+call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 8, 8,7,'07-02-2020');
+call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 9, 9,5,'05-04-2020');
 
-INSERT INTO Advertisement
-	(highestBidder,highestBid,minimumPrice,openingDate,closingDate,minimumIncrease,advertiser,itemID)
-VALUES
-	(null, null, 10, '03-01-2019', '05-01-2019', 2, 1, 1),
-	(null, null, 12, '01-04-2019', '04-02-2019', 2, 2, 2),
-	(null, null, 15, '04-02-2019', '05-04-2019', 2, 3, 3),
-	(null, null, 10, '03-01-2019', '05-01-2019', 2, 4, 4),
-	(null, null, 12, '01-04-2019', '07-02-2019', 2, 5, 5),
-	(null, null, 15, '04-02-2019', '05-04-2019', 2, 6, 6),
-	(null, null, 10, '03-01-2019', '05-01-2019', 2, 7, 7),
-	(null, null, 12, '01-04-2019', '07-02-2019', 2, 8, 8),
-	(null, null, 15, '04-02-2019', '05-04-2019', 2, 9, 9);
-
-	
 call insertNewBid(64, 1,'03-01-2019',10);
 call insertNewBid(49, 1,'03-02-2019',12);
 call insertNewBid(85, 1,'03-03-2019',14);
@@ -1046,12 +1190,6 @@ call insertNewBid(57, 7,'04-02-2019',14);
 call insertNewBid(85, 8,'02-04-2019',12);
 call insertNewBid(76, 9,'05-02-2019',16);
 	
-
-INSERT INTO Chooses
-	(bidID,userID,advID)
-VALUES
-	(5, 2, 2);
-
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 + 15 invoicedLoans.  The later 15 have reviews tagged to them
@@ -1118,6 +1256,69 @@ call insertNewInvoicedLoan('02-05-2018', 2, 57, 2);
 call insertNewInvoicedLoan('07-10-2019', 1, 64, 1);
 call insertNewInvoicedLoan('02-03-2017', 3, 1, 3);
 --date format is month, day, year
+
+call insertNewChooses(5,2,2, '10-03-2019');
+
+call updateStatusOfLoanedItem(True, 1);
+call updateStatusOfLoanedItem(True, 2);
+call updateStatusOfLoanedItem(True, 3);
+call updateStatusOfLoanedItem(True, 4);
+call updateStatusOfLoanedItem(True, 5);
+call updateStatusOfLoanedItem(True, 6);
+call updateStatusOfLoanedItem(True, 7);
+call updateStatusOfLoanedItem(True, 8);
+call updateStatusOfLoanedItem(True, 9);
+call updateStatusOfLoanedItem(True,10);
+call updateStatusOfLoanedItem(True,11);
+call updateStatusOfLoanedItem(True,12);
+call updateStatusOfLoanedItem(True,13);
+call updateStatusOfLoanedItem(True,14);
+call updateStatusOfLoanedItem(True,15);
+call updateStatusOfLoanedItem(True,16);
+call updateStatusOfLoanedItem(True,17);
+call updateStatusOfLoanedItem(True,18);
+call updateStatusOfLoanedItem(True,19);
+call updateStatusOfLoanedItem(True,20);
+call updateStatusOfLoanedItem(True,21);
+call updateStatusOfLoanedItem(True,22);
+call updateStatusOfLoanedItem(True,23);
+call updateStatusOfLoanedItem(True,24);
+call updateStatusOfLoanedItem(True,25);
+call updateStatusOfLoanedItem(True,26);
+call updateStatusOfLoanedItem(True,27);
+call updateStatusOfLoanedItem(True,28);
+call updateStatusOfLoanedItem(True,29);
+call updateStatusOfLoanedItem(True,30);
+call updateStatusOfLoanedItem(True,31);
+call updateStatusOfLoanedItem(True,32);
+call updateStatusOfLoanedItem(True,33);
+call updateStatusOfLoanedItem(True,34);
+call updateStatusOfLoanedItem(True,35);
+call updateStatusOfLoanedItem(True,36);
+call updateStatusOfLoanedItem(True,37);
+call updateStatusOfLoanedItem(True,38);
+call updateStatusOfLoanedItem(True,39);
+call updateStatusOfLoanedItem(True,40);
+call updateStatusOfLoanedItem(True,41);
+call updateStatusOfLoanedItem(True,42);
+call updateStatusOfLoanedItem(True,43);
+call updateStatusOfLoanedItem(True,44);
+call updateStatusOfLoanedItem(True,45);
+call updateStatusOfLoanedItem(True,46);
+call updateStatusOfLoanedItem(True,47);
+call updateStatusOfLoanedItem(True,48);
+call updateStatusOfLoanedItem(True,49);
+call updateStatusOfLoanedItem(True,50);
+call updateStatusOfLoanedItem(True,51);
+call updateStatusOfLoanedItem(True,52);
+call updateStatusOfLoanedItem(True,53);
+call updateStatusOfLoanedItem(True,54);
+call updateStatusOfLoanedItem(True,55);
+call updateStatusOfLoanedItem(True,56);
+call updateStatusOfLoanedItem(True,57);
+call updateStatusOfLoanedItem(True,58);
+call updateStatusOfLoanedItem(True,59);
+call updateStatusOfLoanedItem(True,60);
 
 
 INSERT INTO UserReviewItem

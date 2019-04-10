@@ -257,6 +257,10 @@ app.get(
   '/interestgroups/members',
   [query('groupName').isString()],
   async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
     let data = await pool.query(
       `
       select J.userID, UA.name 
@@ -346,6 +350,24 @@ app.patch(
       return res.status(400).json({ errors: error })
     }
 
+    res.send({ data })
+  },
+)
+
+app.delete(
+  '/interestgroups',
+  [query('groupName').isString()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data = await pool.query(
+      `
+      delete from InterestGroup where groupName = $1
+    `,
+      [req.query.groupName],
+    )
     res.send({ data })
   },
 )
