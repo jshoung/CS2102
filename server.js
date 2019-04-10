@@ -457,10 +457,6 @@ app.post(
       return res.status(400).json({ errors: errors.array() })
     }
     const currentDate = moment().format('DD-MM-YYYY')
-    console.log(req.body.borrowerId)
-    console.log(req.body.advId)
-    console.log(currentDate)
-    console.log(req.body.bidPrice)
     let data = await pool.query(
       `
       call insertNewBid($1, $2, $3, $4)
