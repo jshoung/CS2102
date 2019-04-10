@@ -1594,5 +1594,3 @@ firstAndSecondAndThirdMostPopularAdvInYearMonth as
 )
 select *
 from firstAndSecondAndThirdMostPopularAdvInYearMonth;
-
-select *  from invoicedloan;
