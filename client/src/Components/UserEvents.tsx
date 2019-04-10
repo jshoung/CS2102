@@ -15,7 +15,7 @@ import * as Icon from 'react-feather'
 
 import { parseMDYLongDate } from '../util/moment'
 import ErrorModal from './ErrorModal'
-import CreateGroupForm from './CreateGroupForm'
+import EventForm from './EventForm'
 import EditGroupForm from './EditGroupForm'
 
 interface MyProps {
@@ -40,7 +40,7 @@ class UserEvents extends Component<MyProps, MyState> {
       isCreating: false,
     }
 
-    this.toggleCreateGroupForm = this.toggleCreateGroupForm.bind(this)
+    this.toggleEventForm = this.toggleEventForm.bind(this)
     this.showErrorModal = this.showErrorModal.bind(this)
     this.fetchUserEvents = this.fetchUserEvents.bind(this)
   }
@@ -129,7 +129,7 @@ class UserEvents extends Component<MyProps, MyState> {
     })
   }
 
-  toggleCreateGroupForm() {
+  toggleEventForm() {
     this.setState({ isCreating: !this.state.isCreating })
     this.fetchUserEvents()
   }
@@ -154,18 +154,19 @@ class UserEvents extends Component<MyProps, MyState> {
           }}
         >
           {this.state.isCreating ? (
-            <CreateGroupForm
+            <EventForm
               isEditing={false}
               toggleLoading={toggleLoading}
               selectedUser={selectedUser}
-              toggleCreateGroup={this.toggleCreateGroupForm}
+              toggleCreateEvent={this.toggleEventForm}
+              rows={rows}
             />
           ) : (
             <Button
               className="text-center"
               style={{ flex: '1 1 100%' }}
               variant="outline-secondary"
-              onClick={this.toggleCreateGroupForm}
+              onClick={this.toggleEventForm}
             >
               Create New Event
             </Button>
