@@ -16,7 +16,7 @@ interface MyState {
   userId: string
 }
 
-class BorrowedList extends Component<MyProps, MyState> {
+class LoanHistory extends Component<MyProps, MyState> {
   constructor(props: any) {
     super(props)
     this.state = {
@@ -26,17 +26,17 @@ class BorrowedList extends Component<MyProps, MyState> {
   }
 
   async componentDidMount() {
-    await this.fetchBorrowedItems()
+    await this.fetchLoanHistory()
   }
 
-  async fetchBorrowedItems() {
+  async fetchLoanHistory() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
 
     const { data } = await axios.get(`/users/loans`, {
       params: {
         userId: userId,
-        isLoaner: false,
+        isLoaner: true,
       },
     })
 
@@ -49,7 +49,7 @@ class BorrowedList extends Component<MyProps, MyState> {
 
     // Hack to ensure data is updated when changing users
     if (userId != this.state.userId) {
-      this.fetchBorrowedItems()
+      this.fetchLoanHistory()
     }
     const { rows } = this.state.data
     return rows.map((row: any) => (
@@ -64,7 +64,6 @@ class BorrowedList extends Component<MyProps, MyState> {
           <Card.Body>
             <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
             <Card.Subtitle />
-            <Card.Subtitle>{`Item Owner: ${_.get(row, 'name')}`}</Card.Subtitle>
             <Card.Text>
               {`Start Date: ${parseMDYLongDate(
                 _.get(row, 'startdate'),
@@ -75,7 +74,6 @@ class BorrowedList extends Component<MyProps, MyState> {
                 'penalty',
               )}`}{' '}
               <br />
-              Item Description: {_.get(row, 'itemdescription')}
             </Card.Text>
           </Card.Body>
         </Card>
@@ -84,4 +82,4 @@ class BorrowedList extends Component<MyProps, MyState> {
   }
 }
 
-export default BorrowedList
+export default LoanHistory

@@ -23,6 +23,7 @@ import BrowseItems from '../Components/BrowseItems'
 import NavBar from '../Components/NavBar'
 import { parseMDYLongDate } from '../util/moment'
 import UserInterestGroups from '../Components/UserInterestGroups'
+import LoanHistory from '../Components/LoanHistory'
 import InterestGroups from '../InterestGroups/InterestGroups'
 
 class Main extends Component {
@@ -155,7 +156,7 @@ class Main extends Component {
           )
         })
         break
-      case 'Loans':
+      case 'Borrowed Items':
         content.push(
           <BorrowedList
             selectedUser={selectedUser}
@@ -169,6 +170,14 @@ class Main extends Component {
           <UserInterestGroups
             selectedUser={selectedUser}
             toggleLoading={this.toggleLoading}
+          />,
+        )
+      case 'Loan History':
+        content.push(
+          <LoanHistory
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
           />,
         )
       default:
@@ -244,8 +253,17 @@ class Main extends Component {
                   </Nav.Item>
                   <Nav.Item>
                     <Nav.Link
-                      eventKey="Loans"
-                      onSelect={() => this.changeTab('Loans')}
+                      eventKey="Loan History"
+                      onSelect={() => this.changeTab('Loan History')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Loan History
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Borrowed Items"
+                      onSelect={() => this.changeTab('Borrowed Items')}
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Borrowed Items
