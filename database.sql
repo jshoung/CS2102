@@ -92,6 +92,7 @@ create table OrganizedEvent
 (
 	eventID serial,
 	eventDate date not null,
+	eventName varchar(80) not null,
 	venue varchar(80) not null,
 	organizer varchar(80),
 	primary key (eventID),
@@ -970,13 +971,13 @@ VALUES
 	('04-14-2017', 48, 'Refined Music People');
 
 INSERT INTO OrganizedEvent
-	(eventDate,venue,organizer)
+	(eventDate,eventName,venue,organizer)
 VALUES
-	('01-17-2019', 'East Coast Park', 'Photography Club'),
-	('01-18-2019', 'Suntec City', 'Tech Geeks'),
-	('01-19-2019', 'Vivocity Movie Theatre', 'Spiderman Fans'),
-	('02-17-2019', 'Scape', 'Clothes Club'),
-	('07-17-2019', 'Esplanade', 'Refined Music People');
+	('01-17-2019', 'Beach Photography', 'East Coast Park', 'Photography Club'),
+	('01-18-2019', 'Blockchain tech: Smart Contracts','Suntec City', 'Tech Geeks'),
+	('01-19-2019', 'Adventures of Spoderman','Vivocity Movie Theatre', 'Spiderman Fans'),
+	('02-17-2019','High Street Fashion Competition', 'Scape', 'Clothes Club'),
+	('07-17-2019', 'A Night with Beethoven','Esplanade', 'Refined Music People');
 
 
 --loanerID from 1 to 50 inclusive
