@@ -461,19 +461,26 @@ app.post(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() })
     }
-    let data = await pool.query(
-      `
-      INSERT INTO OrganizedEvent
-        (eventDate,eventName,venue,organizer)
-      values($1,$2,$3,$4)
-    `,
-      [
-        req.body.eventDate,
-        req.body.eventName,
-        req.body.venue,
-        req.body.organizer,
-      ],
-    )
+    let data
+
+    try {
+      data = await pool.query(
+        `
+        INSERT INTO OrganizedEvent
+          (eventDate,eventName,venue,organizer)
+        values($1,$2,$3,$4)
+      `,
+        [
+          req.body.eventDate,
+          req.body.eventName,
+          req.body.venue,
+          req.body.organizer,
+        ],
+      )
+    } catch (error) {
+      res.status(400).json({ errors: error })
+    }
+
     res.send({ data })
   },
 )

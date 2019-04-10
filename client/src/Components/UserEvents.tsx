@@ -155,6 +155,8 @@ class UserEvents extends Component<MyProps, MyState> {
         >
           {this.state.isCreating ? (
             <EventForm
+              showErrorModal={this.showErrorModal}
+              fetchUserEvents={this.fetchUserEvents}
               isEditing={false}
               toggleLoading={toggleLoading}
               selectedUser={selectedUser}

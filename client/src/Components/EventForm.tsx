@@ -9,23 +9,27 @@ interface MyProps {
   toggleCreateEvent: Function
   isEditing: boolean
   rows: object
+  showErrorModal: (string: string) => void
+  fetchUserEvents: () => void
 }
 
 interface MyState {
-  interestGroup: string
+  organizer: string
   eventName: string
   eventDate: string
   venue: string
+  data: object
 }
 
 class EventForm extends Component<MyProps, MyState> {
   constructor(props: any) {
     super(props)
     this.state = {
-      interestGroup: '',
+      organizer: '',
       eventName: '',
       eventDate: '',
       venue: '',
+      data: { rows: [] },
     }
 
     this.handleChange = this.handleChange.bind(this)
@@ -41,18 +45,48 @@ class EventForm extends Component<MyProps, MyState> {
     } as any)
   }
 
-  handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    const { selectedUser, toggleLoading, isEditing } = this.props
-    const userId = _.get(selectedUser, 'userId')
-
-    this.props.toggleCreateEvent()
-
-    event.preventDefault()
+  async componentDidMount() {
+    await this.fetchInterestGroups()
   }
 
-  renderInterestGroupOptions = (rows: any) => {
+  async fetchInterestGroups() {
+    const { selectedUser } = this.props
+    const userId = _.get(selectedUser, 'userId')
+
+    const { data } = await axios.get('/users/interestgroups', {
+      params: {
+        userId,
+      },
+    })
+
+    this.setState({
+      ...data,
+      userId,
+      organizer: data.data.rows[0].groupname,
+    })
+  }
+
+  handleSubmit = async () => {
+    try {
+      await axios.post('/events', {
+        organizer: this.state.organizer,
+        eventName: this.state.eventName,
+        eventDate: this.state.eventDate,
+        venue: this.state.venue,
+      })
+    } catch (error) {
+      this.props.showErrorModal(error.toString())
+    }
+
+    this.props.toggleCreateEvent()
+    await this.props.fetchUserEvents()
+  }
+
+  renderInterestGroupOptions = () => {
+    const rows = _.get(this.state.data, 'rows')
+
     return rows.map((row: any) => {
-      return <option value={row.organizer}>{row.organizer}</option>
+      return <option value={row.groupname}>{row.groupname}</option>
     })
   }
 
@@ -60,15 +94,15 @@ class EventForm extends Component<MyProps, MyState> {
     return (
       <Form style={{ flex: '1 1 100%' }} onSubmit={this.handleSubmit}>
         <Form.Group controlId="ControlSelect1">
-          <Form.Label>Interest Group</Form.Label>
+          <Form.Label>Organizer</Form.Label>
           <Form.Control
-            name="interestGroup"
+            name="organizer"
             onChange={this.handleChange}
-            value={`${this.state.interestGroup}`}
+            value={`${this.state.organizer}`}
             required
             as="select"
           >
-            {this.renderInterestGroupOptions(this.props.rows)}
+            {this.renderInterestGroupOptions()}
           </Form.Control>
         </Form.Group>
         <Form.Group controlId="ControlInput1">
@@ -104,7 +138,7 @@ class EventForm extends Component<MyProps, MyState> {
             required
           />
         </Form.Group>
-        <Button variant="primary" type="submit">
+        <Button variant="primary" onClick={this.handleSubmit}>
           {'Create'}
         </Button>
         <Button
