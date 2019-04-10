@@ -1015,7 +1015,7 @@ INSERT INTO Advertisement
 	(highestBidder,highestBid,minimumPrice,openingDate,closingDate,minimumIncrease,advertiser,itemID)
 VALUES
 	(null, null, 10, '03-01-2019', '05-01-2019', 2, 1, 1),
-	(null, null, 12, '01-04-2019', '07-02-2019', 2, 2, 2),
+	(null, null, 12, '01-04-2019', '04-02-2019', 2, 2, 2),
 	(null, null, 15, '04-02-2019', '05-04-2019', 2, 3, 3),
 	(null, null, 10, '03-01-2019', '05-01-2019', 2, 4, 4),
 	(null, null, 12, '01-04-2019', '07-02-2019', 2, 5, 5),
