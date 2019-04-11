@@ -545,12 +545,12 @@ app.delete('/events', [query('eventId').isInt()], async (req, res) => {
 // *************************** //
 
 app.get('/bigfan', async (req, res) => {
-  const data = await pool.query('select * from biggestFanAward')
+  const data = await pool.query('select * from bigFanAward')
   res.send({ data })
 })
 
 app.get('/enemy', async (req, res) => {
-  const data = await pool.query('select * from worstEnemy')
+  const data = await pool.query('select * from enemy')
   res.send({ data })
 })
 
