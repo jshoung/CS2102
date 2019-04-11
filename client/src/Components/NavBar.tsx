@@ -6,12 +6,12 @@ import { Dropdown } from 'react-bootstrap'
 
 interface OwnProps {
   selectedUser: object
-  userList: object
+  userDropdownList: object
   changePage: Function
 }
 
 const NavBar = (props: OwnProps) => {
-  const { selectedUser, userList, changePage } = props
+  const { selectedUser, userDropdownList, changePage } = props
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
@@ -60,7 +60,7 @@ const NavBar = (props: OwnProps) => {
             maxHeight: '500px',
           }}
         >
-          {userList}
+          {userDropdownList}
         </Dropdown.Menu>
       </Dropdown>
     </nav>

@@ -70,13 +70,19 @@ app.get('/users', async (req, res) => {
 //        Items        //
 // ******************* //
 
+app.get('/items', async (req, res) => {
+  const data = await pool.query('select * from loanerItem')
+
+  res.send({ data })
+})
+
 app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() })
   }
-  let data
 
+  // Check whether user exists in database
   const { rowCount } = await pool.query(
     'select userId from UserAccount where userId = $1',
     [req.body.userId],
@@ -84,64 +90,38 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   if (!rowCount) {
     return res.status(404).json({ errors: 'User not found in the database' })
   }
-  data = await pool.query(`select * from LoanerItem where userID = $1`, [
+  let data = await pool.query('select * from LoanerItem where userID = $1', [
     req.body.userId,
   ])
-
-  // Check whether user exists in database
-
-  res.send({ data })
-})
-
-app.get('/items', [query('isListAvailable').isBoolean()], async (req, res) => {
-  const errors = validationResult(req)
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
-  }
-  if (req.query.isListAvailable) {
-    const currentDate = moment().format('MM-DD-YYYY')
-
-    data = await pool.query(
-      `select distinct LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, UA.name as ownerName
-      from LoanerItem LI
-      natural join
-      UserAccount UA
-      where not exists( select 1 from LoanerItem LI2 natural join InvoicedLoan IL2 
-                          where LI.itemID = LI2.itemID and (IL2.isReturned is false or $1 between IL2.startDate and IL2.endDate))`,
-      [currentDate],
-    )
-  } else {
-    data = await pool.query(
-      `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, UA.name as ownerName
-                    from LoanerItem LI
-                    left outer join 
-                    InvoicedLoan IL
-                    on LI.userID = IL.loanerID and LI.itemId = IL.itemID
-                    left outer join
-                    UserAccount UA
-                    on UA.userId = LI.userId`,
-    )
-  }
 
   res.send({ data })
 })
 
 app.post('/add-item', async (req, res) => {
   await pool.query(
-    'insert into loaneritem (itemname, value, itemdescription, userid) values ($1, $2, $3, $4)',
-    [req.body.itemName, req.body.itemValue, req.body.itemDesc, req.body.userId],
+    'insert into loaneritem (itemname, value, itemdescription, userid, loanfee, loanduration) values ($1, $2, $3, $4, $5, $6)',
+    [
+      req.body.itemName,
+      req.body.itemValue,
+      req.body.itemDesc,
+      req.body.userId,
+      req.body.loanFee,
+      req.body.loanDuration,
+    ],
   )
   res.sendStatus(200)
 })
 
 app.patch('/add-item', async (req, res) => {
   await pool.query(
-    'update loaneritem set itemname = $1, value = $2, itemdescription = $3, userid = $4 where itemid = $5',
+    'update loaneritem set itemname = $1, value = $2, itemdescription = $3, userid = $4, loanfee = $5, loanduration = $6 where itemid = $7',
     [
       req.body.itemName,
       req.body.itemValue,
       req.body.itemDesc,
       req.body.userId,
+      req.body.loanFee,
+      req.body.loanDuration,
       req.body.itemId,
     ],
   )
@@ -286,7 +266,6 @@ app.get(
     res.send({ data })
   },
 )
-
 // *************************** //
 //        Interest Groups      //
 // *************************** //
@@ -310,10 +289,6 @@ app.get(
   '/interestgroups/members',
   [query('groupName').isString()],
   async (req, res) => {
-    const errors = validationResult(req)
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
-    }
     let data = await pool.query(
       `
       select J.userID, UA.name 
@@ -407,24 +382,6 @@ app.patch(
   },
 )
 
-app.delete(
-  '/interestgroups',
-  [query('groupName').isString()],
-  async (req, res) => {
-    const errors = validationResult(req)
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
-    }
-    let data = await pool.query(
-      `
-      delete from InterestGroup where groupName = $1
-    `,
-      [req.query.groupName],
-    )
-    res.send({ data })
-  },
-)
-
 // *************************** //
 //            Joins            //
 // *************************** //
@@ -487,12 +444,6 @@ app.post(
 
 app.get('/advertisements', async (req, res) => {
   const data = await pool.query('select * from advertisement')
-
-  res.send({ data })
-})
-
-app.get('/advertisements/items', async (req, res) => {
-  const data = await pool.query('select * from loanerItem')
 
   res.send({ data })
 })
@@ -597,13 +548,63 @@ app.get('/bigfan', async (req, res) => {
   const data = await pool.query('select * from biggestFanAward')
   res.send({ data })
 })
+
 app.get('/enemy', async (req, res) => {
   const data = await pool.query('select * from worstEnemy')
   res.send({ data })
 })
+
 app.get('/popular', async (req, res) => {
   const data = await pool.query('select * from popularItem')
   res.send({ data })
+})
+
+// ******************* //
+//        Reports      //
+// ******************* //
+
+app.get('/reports', async (req, res) => {
+  let data = await pool.query('select * from report where reporter = $1', [
+    req.query.userId,
+  ])
+
+  res.send({ data })
+})
+
+app.post('/reports', async (req, res) => {
+  await pool.query(
+    'insert into report (title, reportdate, reason, reporter, reportee) values ($1, $2, $3, $4, $5)',
+    [
+      req.body.title,
+      req.body.reportdate,
+      req.body.reason,
+      req.body.reporter,
+      req.body.reportee,
+    ],
+  )
+  res.sendStatus(200)
+})
+
+app.patch('/reports', async (req, res) => {
+  await pool.query(
+    'update report set title = $1, reportdate = $2, reason = $3, reporter = $4, reportee = $5 where reportid = $6',
+    [
+      req.body.title,
+      req.body.reportdate,
+      req.body.reason,
+      req.body.reporter,
+      req.body.reportee,
+      req.body.reportid,
+    ],
+  )
+  res.sendStatus(200)
+})
+
+app.delete('/reports', async (req, res) => {
+  await pool.query('delete from report where reportid = $1', [
+    req.body.reportid,
+  ])
+  res.sendStatus(200)
 })
 
 // *************************** //

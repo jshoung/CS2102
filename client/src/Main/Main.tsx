@@ -1,4 +1,4 @@
-import React, { Component, useReducer } from 'react'
+import React, { Component } from 'react'
 import * as _ from 'lodash'
 import axios from 'axios'
 import {
@@ -17,44 +17,45 @@ import {
 import * as Icon from 'react-feather'
 
 import AddItem from '../Components/AddItem'
+import NavBar from '../Components/NavBar'
+import UserInterestGroups from '../Components/UserInterestGroups'
+import InterestGroups from '../InterestGroups/InterestGroups'
+import ReportUser from '../Components/ReportUser'
 import BorrowedList from '../Components/BorrowedList'
 import BrowseItems from '../Components/BrowseItems'
 import LoanHistory from '../Components/LoanHistory'
-import NavBar from '../Components/NavBar'
-import UserInterestGroups from '../Components/UserInterestGroups'
 import UserEvents from '../Components/UserEvents'
-import InterestGroups from '../InterestGroups/InterestGroups'
-import Adverisements from '../Components/Advertisements'
+import Advertisements from '../Components/Advertisements'
 import ComplexQueries from '../Components/ComplexQueries'
+import { parseMDYLongDate } from '../util/moment'
 
 class Main extends Component {
   state = {
     data: {},
-    userList: [],
+    userList: {},
+    userDropdownList: [],
     selectedUser: {},
     selectedTab: '',
     userItems: [],
     content: [],
+    reports: [],
     isLoading: false,
     pageToRender: 'Profile',
     advertisements: [],
-    items: [],
+    items: {},
   }
 
   async componentDidMount() {
-    let payload = (await axios.get(`/users`)).data
+    const data = (await axios.get(`/users`)).data.data
+    const advertisements = (await axios.get('/advertisements')).data
 
     this.setState(
       {
-        ...payload,
+        data,
+        advertisements,
       },
       () => this.loadUsers(),
     )
-    payload = (await axios.get('/advertisements')).data
-    this.setState({ advertisements: payload.data.rows })
-    payload = (await axios.get('/advertisements/items')).data
-    this.setState({ items: payload.data.rows })
-    console.log('payload', payload)
   }
 
   toggleLoading = (callback: () => void) => {
@@ -70,21 +71,200 @@ class Main extends Component {
   loadUsers = () => {
     const { data } = this.state
 
-    let userList: any[] = []
+    let userDropdownList: any[] = []
+    let userList: any = {}
     _.get(data, 'rows').forEach((row: any) => {
       let name = row.name
       let userid = row.userid
-      userList.push(
+      userList[userid] = name
+      userDropdownList.push(
         <Dropdown.Item onSelect={() => this.changeUser(name, userid)}>
           {name}
         </Dropdown.Item>,
       )
     })
-    this.setState({ userList })
+    this.setState({ userDropdownList, userList })
+  }
+
+  renderItems = (content: any[]) => {
+    const { userItems, selectedUser } = this.state
+
+    userItems.forEach((row) => {
+      const popover = (
+        <Popover
+          id="popover-basic"
+          title="Edit Item"
+          style={{ width: '18rem' }}
+        >
+          <AddItem
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+            selectedItem={row}
+            isEditing={true}
+          />
+        </Popover>
+      )
+
+      content.push(
+        <CardDeck style={{ paddingBottom: '10px' }}>
+          <Card
+            className="text-center"
+            bg="dark"
+            text="white"
+            border="dark"
+            style={{ width: '18rem' }}
+          >
+            <Card.Body>
+              <Card.Title>
+                {_.get(row, 'itemname')}{' '}
+                <OverlayTrigger
+                  rootClose={true}
+                  trigger="click"
+                  placement="auto"
+                  overlay={popover}
+                >
+                  <Icon.Edit style={{ cursor: 'pointer' }} />
+                </OverlayTrigger>
+              </Card.Title>
+              <Card.Subtitle className={'mb-2'}>
+                Item Value: ${_.get(row, 'value')} | Loan Fee: $
+                {_.get(row, 'loanfee')} | Loan Duration:{' '}
+                {_.get(row, 'loanduration')} Days
+              </Card.Subtitle>
+              <Card.Text>
+                Description: {_.get(row, 'itemdescription')}
+              </Card.Text>
+            </Card.Body>
+            <Card.Footer>
+              <div>
+                <Button variant="light" size="sm">
+                  Put Up For Loan
+                </Button>
+              </div>
+            </Card.Footer>
+          </Card>
+        </CardDeck>,
+      )
+    })
+  }
+
+  handleDeleteReport = (reportid: any) => async () => {
+    this.toggleLoading(async () => {
+      await axios.delete(`/reports`, {
+        data: { reportid },
+      })
+
+      await this.loadTabData()
+      this.toggleLoading(() => {})
+    })
+  }
+
+  getReportsById = (reportee: number) => {
+    const { reports } = this.state
+
+    const matchingReport = reports.filter((report) => {
+      return _.get(report, 'reportee') === reportee
+    })
+
+    if (!matchingReport.length) {
+      return
+    }
+
+    return matchingReport[0]
+  }
+
+  renderBrowseUsers = (content: any[]) => {
+    const { data, selectedUser } = this.state
+
+    _.get(data, 'rows').forEach((row: any) => {
+      const name = row.name
+      const reporter = _.get(selectedUser, 'userId')
+      const reportee = _.get(row, 'userid')
+      if (reporter === reportee) {
+        return
+      }
+      const existingReport = this.getReportsById(reportee)
+      const reportDate = _.get(existingReport, 'reportdate')
+      const reportid = _.get(existingReport, 'reportid')
+      const title = existingReport ? 'Edit Report' : 'Report User'
+      const popover = (
+        <Popover id="popover-basic" title={title} style={{ width: '18rem' }}>
+          <ReportUser
+            reporter={reporter}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+            reportee={reportee}
+            existingReport={existingReport}
+            isEditing={!!existingReport}
+          />
+        </Popover>
+      )
+
+      content.push(
+        <CardDeck style={{ paddingBottom: '10px' }}>
+          <Card
+            className="text-center"
+            bg="dark"
+            text="white"
+            border="dark"
+            style={{ width: '18rem' }}
+          >
+            <Card.Body>
+              <Card.Title>
+                {name}{' '}
+                {existingReport && (
+                  <OverlayTrigger
+                    rootClose={true}
+                    trigger="click"
+                    placement="auto"
+                    overlay={popover}
+                  >
+                    <Icon.Edit style={{ cursor: 'pointer' }} />
+                  </OverlayTrigger>
+                )}
+              </Card.Title>
+              <Card.Subtitle className={'mb-2'}>
+                {_.get(existingReport, 'title')}
+              </Card.Subtitle>
+              <Card.Text>{_.get(existingReport, 'reason')}</Card.Text>
+            </Card.Body>
+            <Card.Footer
+              style={{ display: 'flex', justifyContent: 'space-between' }}
+            >
+              {existingReport
+                ? `Reported on ${parseMDYLongDate(reportDate)}`
+                : 'This user has been behaving!'}
+
+              {existingReport ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={this.handleDeleteReport(reportid)}
+                >
+                  Delete Report
+                </Button>
+              ) : (
+                <OverlayTrigger
+                  rootClose={true}
+                  trigger="click"
+                  placement="auto"
+                  overlay={popover}
+                >
+                  <Button variant="light" size="sm">
+                    {title}
+                  </Button>
+                </OverlayTrigger>
+              )}
+            </Card.Footer>
+          </Card>
+        </CardDeck>,
+      )
+    })
   }
 
   updateTab = () => {
-    const { userItems, selectedTab, selectedUser } = this.state
+    const { selectedTab, selectedUser } = this.state
     let content: any[] = []
 
     switch (selectedTab) {
@@ -99,63 +279,10 @@ class Main extends Component {
         )
         break
       case 'Items':
-        userItems.forEach((row) => {
-          const popover = (
-            <Popover
-              id="popover-basic"
-              title="Edit Item"
-              style={{ width: '18rem' }}
-            >
-              <AddItem
-                selectedUser={selectedUser}
-                toggleLoading={this.toggleLoading}
-                loadTabData={this.loadTabData}
-                selectedItem={row}
-                isEditing={true}
-              />
-            </Popover>
-          )
-
-          content.push(
-            <CardDeck style={{ paddingBottom: '10px' }}>
-              <Card
-                className="text-center"
-                bg="dark"
-                text="white"
-                border="dark"
-                style={{ width: '18rem' }}
-              >
-                <Card.Body>
-                  <Card.Title>
-                    {_.get(row, 'itemname')}{' '}
-                    <OverlayTrigger
-                      rootClose={true}
-                      trigger="click"
-                      placement="right"
-                      overlay={popover}
-                    >
-                      <Icon.Edit style={{ cursor: 'pointer' }} />
-                    </OverlayTrigger>
-                  </Card.Title>
-                  <Card.Subtitle>Price: ${_.get(row, 'value')}</Card.Subtitle>
-                  <Card.Text>
-                    Description: {_.get(row, 'itemdescription')}
-                  </Card.Text>
-                </Card.Body>
-                <Card.Footer>
-                  <div>
-                    <Button variant="light" size="sm">
-                      Put Up For Loan
-                    </Button>
-                  </div>
-                </Card.Footer>
-              </Card>
-            </CardDeck>,
-          )
-        })
+        this.renderItems(content)
         break
-      case 'Loans':
-        // content = <div>Loan name</div>
+      case 'Browse Users':
+        this.renderBrowseUsers(content)
         break
       case 'Interest Groups':
         content.push(
@@ -165,10 +292,9 @@ class Main extends Component {
           />,
         )
         break
-
       case 'Advertisements':
         content.push(
-          <Adverisements
+          <Advertisements
             loadTabData={this.loadTabData}
             currentUser={this.state.selectedUser}
             userList={this.state.userList}
@@ -192,6 +318,7 @@ class Main extends Component {
             toggleLoading={this.toggleLoading}
           />,
         )
+        break
       case 'Loan History':
         content.push(
           <LoanHistory
@@ -235,16 +362,26 @@ class Main extends Component {
     const { selectedUser } = this.state
     const userId = _.get(selectedUser, 'userId')
 
-    const items = await axios.post(`/users/items`, {
+    const allItems = (await axios.get('/items')).data.data.rows
+    const userItems = await axios.post(`/users/items`, {
       userId,
     })
+    const reports = await axios.get(`/reports`, {
+      params: { userId },
+    })
     const ads = (await axios.get('/advertisements')).data
-    this.setState({ advertisements: ads.data.rows }, () => {
-      this.updateTab()
-    })
-    this.setState({ userItems: items.data.data.rows }, () => {
-      this.updateTab()
-    })
+    const items = _.keyBy(allItems, 'itemid')
+    this.setState(
+      {
+        userItems: userItems.data.data.rows,
+        reports: reports.data.data.rows,
+        advertisements: ads.data.rows,
+        items,
+      },
+      () => {
+        this.updateTab()
+      },
+    )
   }
 
   changeTab = (selectedTab: string) => {
@@ -280,16 +417,16 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Items')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Items
+                      Your Items
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
                     <Nav.Link
-                      eventKey="Loan History"
-                      onSelect={() => this.changeTab('Loan History')}
+                      eventKey="Browse Users"
+                      onSelect={() => this.changeTab('Browse Users')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Loans
+                      Browse Users
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
@@ -299,6 +436,15 @@ class Main extends Component {
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Your Groups
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Loan History"
+                      onSelect={() => this.changeTab('Loan History')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Loans
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
@@ -363,10 +509,8 @@ class Main extends Component {
 
   render() {
     const {
-      selectedTab,
       selectedUser,
-      userList,
-      content,
+      userDropdownList,
       isLoading,
       pageToRender,
     } = this.state
@@ -375,7 +519,7 @@ class Main extends Component {
       <>
         <NavBar
           selectedUser={selectedUser}
-          userList={userList}
+          userDropdownList={userDropdownList}
           changePage={this.changePage}
         />
         {isLoading ? (
