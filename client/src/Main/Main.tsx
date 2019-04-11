@@ -20,6 +20,7 @@ import AddItem from '../Components/AddItem'
 import NavBar from '../Components/NavBar'
 import UserInterestGroups from '../Components/UserInterestGroups'
 import InterestGroups from '../InterestGroups/InterestGroups'
+import ReportUser from '../Components/ReportUser'
 
 class Main extends Component {
   state = {
@@ -29,6 +30,7 @@ class Main extends Component {
     selectedTab: '',
     userItems: [],
     content: [],
+    reports: [],
     isLoading: false,
     pageToRender: 'Profile',
   }
@@ -133,12 +135,45 @@ class Main extends Component {
     })
   }
 
+  getReportsById = (reportee: number) => {
+    const { reports } = this.state
+
+    const matchingReport = reports.filter((report) => {
+      return _.get(report, 'reportee') === reportee
+    })
+
+    if (!matchingReport.length) {
+      return
+    }
+
+    return matchingReport[0]
+  }
+
   renderBrowseUsers = (content: any[]) => {
-    const { data } = this.state
+    const { data, selectedUser } = this.state
 
     _.get(data, 'rows').forEach((row: any) => {
-      let name = row.name
-      let userid = row.userid
+      const name = row.name
+      const reporter = _.get(selectedUser, 'userId')
+      const reportee = _.get(row, 'userid')
+      if (reporter === reportee) {
+        return
+      }
+      const existingReport = this.getReportsById(reportee)
+      const title = existingReport ? 'Edit Report' : 'Report User'
+      const popover = (
+        <Popover id="popover-basic" title={title} style={{ width: '18rem' }}>
+          <ReportUser
+            reporter={reporter}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+            reportee={reportee}
+            existingReport={existingReport}
+            isEditing={!!existingReport}
+          />
+        </Popover>
+      )
+
       content.push(
         <CardDeck style={{ paddingBottom: '10px' }}>
           <Card
@@ -152,11 +187,16 @@ class Main extends Component {
               <Card.Title>{name}</Card.Title>
             </Card.Body>
             <Card.Footer>
-              <div>
+              <OverlayTrigger
+                rootClose={true}
+                trigger="click"
+                placement="right"
+                overlay={popover}
+              >
                 <Button variant="light" size="sm">
-                  Report User
+                  {title}
                 </Button>
-              </div>
+              </OverlayTrigger>
             </Card.Footer>
           </Card>
         </CardDeck>,
@@ -180,14 +220,10 @@ class Main extends Component {
         )
         break
       case 'Items':
-        {
-          this.renderItems(content)
-        }
+        this.renderItems(content)
         break
       case 'Browse Users':
-        {
-          this.renderBrowseUsers(content)
-        }
+        this.renderBrowseUsers(content)
         break
       case 'Interest Groups':
         content.push(
@@ -226,9 +262,15 @@ class Main extends Component {
     const items = await axios.post(`/users/items`, {
       userId,
     })
-    this.setState({ userItems: items.data.data.rows }, () => {
-      this.updateTab()
+    const reports = await axios.post(`/reports`, {
+      userId,
     })
+    this.setState(
+      { userItems: items.data.data.rows, reports: reports.data.data.rows },
+      () => {
+        this.updateTab()
+      },
+    )
   }
 
   changeTab = (selectedTab: string) => {
