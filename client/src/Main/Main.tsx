@@ -435,7 +435,7 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Interest Groups')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Your Groups
+                      Groups
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
