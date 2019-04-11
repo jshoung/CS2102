@@ -248,7 +248,7 @@ $$
 			reportAgainstNum integer;
 			windowDate date;
 	begin
-		windowDate := new.bidDate - interval '1' day * 7;
+		windowDate := new.bidDate - interval '7' day;
 
 		select highestBid, minimumIncrease, minimumPrice, openingDate, closingDate, advertiser
 		into previousHighestBid, adMinimumIncrease, adMinimumPrice, targetAdvOpening, targetAdvClosing, originalAdvertiser
@@ -303,11 +303,12 @@ returns trigger as
 $$
 	declare creatorID integer;
 			numBids integer;
+			advertisementOpeningDate date;
 			advertisementClosingDate date;
 			loanStartDate date;
 	begin
-		select advertiser, closingDate, startdate
-		into creatorID, advertisementClosingDate, loanStartDate
+		select advertiser, openingDate, closingDate, startdate
+		into creatorID, advertisementOpeningDate, advertisementClosingDate, loanStartDate
 		from Advertisement
 		where advID = new.advID;
 	
@@ -319,7 +320,7 @@ $$
 	
 		if (new.userID != creatorID) then 
 			raise exception 'You can only choose bids that you created the advertisements for'
-      using hint = 'You can only choose bids that you created the advertisements for';
+      			using hint = 'You can only choose bids that you created the advertisements for';
 			return null;
 		elsif new.bidID not in
 		(select bidID
@@ -332,6 +333,9 @@ $$
 			raise exception 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes'
      			 using hint = 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes';
 			return null;
+		elsif (new.chooseDate < advertisementOpeningDate) then 
+			raise exception 'You can unable to choose before your advertisement has opened'
+				using hint = 'You can unable to choose before your advertisement has opened';
 		elsif (new.chooseDate >= loanStartDate) then 
 			raise exception  'You are unable to choose a bid when the loan was supposed to have already begun'
      			 using hint = 'You are unable to choose a bid when the loan was supposed to have already begun';
@@ -350,47 +354,57 @@ for each row
 execute procedure checkChoosesYourOwnAdvertisementAndCorrectBidAndAtLeast3Bids();
 
 
-create or replace function checkReviewAfterLoan()
+create or replace function checkSuitableReview()
 returns trigger as 
 $$
 	declare invoiceDate date;
+			invoiceOwner integer;
+			oneWeekAgo date;
+			twoWeeksAgo date;
+			numComplaintsFromOwner integer;
+			numComplaintsFromEveryone integer;
 	begin
-		select startdate
-		into invoiceDate
+		oneWeekAgo := new.reviewDate - interval '7' day;
+		twoWeeksAgo := new.reviewDate - interval '14' day;
+
+		select startdate, borrowerID
+		into invoiceDate, invoiceOwner
 		from invoicedLoan
 		where invoiceID = new.invoiceID;
+	
+		select count(*)
+		into numComplaintsFromOwner
+		from (select * 
+			from report
+			where reportDate >= oneWeekAgo and reporter = new.itemOwnerID) as innerCall
+		group by reportee
+		having (reportee = new.userID);
+	
+		select count(*)
+		into numComplaintsFromEveryone
+		from (
+			select * 
+			from report
+			where reportDate >= twoWeeksAgo and reportee = new.userID) as innerCall
+		group by reportee
+		having reportee = new.userID;
+		
 	
 		if (new.reviewDate < invoiceDate) then 
 			raise exception 'Reviews cannot be written before the loan begins'
 				using hint = 'Reviews cannot be written before the loan begins';
 			return null;
-		else
-			return new;
-		end if;
-	end
-$$
-language plpgsql;
-
-create trigger trig2CheckReviewAfterLoan
-before
-update or insert on UserReviewItem
-for each row
-execute procedure checkReviewAfterLoan();
-
-
-create or replace function checkReviewYourOwnInvoice()
-returns trigger as 
-$$
-	declare invoiceOwner integer;
-	begin
-		select borrowerID
-		into invoiceOwner
-		from invoicedLoan
-		where invoiceID = new.invoiceID;
-	
-		if (new.userID != invoiceOwner) then 
+		elsif(new.userID != invoiceOwner) then 
 			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses'
 				using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
+			return null;
+		elsif(numComplaintsFromOwner != 0) then 
+			raise exception 'Sorry you cannot write a review now because the item owner has made a reports against you this week.  Perhaps you could take some time to cool off'
+				using hint = 'Sorry you cannot write a review now because the item owner has made a reports against you this week.  Perhaps you could take some time to cool off';
+			return null;
+		elsif(numComplaintsFromEveryone >3) then 
+			raise exception 'Sorry you cannot write a review now because you have more than 3 reports against you in the past 2 weeks.  Perhaps you could take some time to cool off'
+				using hint = 'Sorry you cannot write a review now because you have more than 3 reports against you in the past 2 weeks.  Perhaps you could take some time to cool off';
 			return null;
 		else
 			return new;
@@ -399,11 +413,11 @@ $$
 $$
 language plpgsql;
 
-create trigger trig3CheckReviewYourOwnInvoice
+create trigger trig1CheckSuitableReview
 before
 update or insert on UserReviewItem
 for each row
-execute procedure checkReviewYourOwnInvoice();
+execute procedure checkSuitableReview();
 
 
 create or replace function checkLoanDateClash()
@@ -505,9 +519,33 @@ language plpgsql;
 
 create trigger trig2CheckInvoicedLoanClashWithCurrentAdvertisement
 before
-update or insert on InvoicedLoan
+insert or update on InvoicedLoan
 for each row
 execute procedure checkInvoicedLoanClashWithCurrentAdvertisement();
+
+
+create or replace function checkItemAlreadyLost()
+returns trigger as
+$$
+	begin
+		if (select max(invoiceID)
+		from InvoicedLoan
+		where new.loanerID = loanerID and new.itemID = itemID and new.invoiceID != invoiceID and (isReturned = false )) is not null then 
+			raise exception  'You cannot begin a loan or modify previous loans when that item is already lost'
+    			  using hint = 'You cannot begin a loan  or modify previous loans when that item is already lost';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig3CheckItemAlreadyLost
+before
+insert or update on InvoicedLoan
+for each row
+execute procedure checkItemAlreadyLost();
 
 
 create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash()
@@ -582,6 +620,30 @@ for each row
 execute procedure checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans();
 
 
+create or replace function checkAdvertisedItemNotAlreadyLost()
+returns trigger as
+$$
+	begin
+		if (select max(invoiceID)
+		from InvoicedLoan
+		where new.advertiser = loanerID and new.itemID = itemID and (isReturned = false )) is not null then 
+			raise exception  'You cannot advertise or modify previous advertisements for an item when that item is already lost'
+    			  using hint = 'You cannot advertise or modify previous advertisements for an item when that item is already lost';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+
+create trigger trig3CheckAdvertisedItemNotAlreadyLost
+before
+update or insert on Advertisement
+for each row
+execute procedure checkAdvertisedItemNotAlreadyLost();
+
 
 create  or replace function checkCreatorCannotLeave()
 returns trigger as 
@@ -608,7 +670,6 @@ before
 delete on Joins
 for each row
 execute procedure checkCreatorCannotLeave();
-
 
 
 create  or replace function checkSuccessorMustBeMember()
@@ -680,7 +741,73 @@ for each row
 execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate();
 
 -- Procedures
-drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses, updateStatusOfLoanedItem;
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses, updateChooses, deleteChooses, updateStatusOfLoanedItem;
+
+
+create or replace procedure deleteChooses(oldUserID integer, oldAdvID integer)
+as
+$$
+	declare oldStartDate date;
+			oldEndDate date;
+			oldLoanerID integer; --should be the advertiser
+			oldItemID integer; --should be the itemID of the advertisement item
+			
+	begin	
+		delete from chooses
+		where advID  = oldAdvID and userID = oldUserID;
+		
+		select startDate, endDate, advertiser, itemID
+		into oldStartDate, oldEndDate, oldLoanerID, oldItemID
+		from advertisement
+		where oldAdvID = advID;
+		
+		delete from invoicedLoan
+		where loanerID = oldLoanerID and itemID = oldItemID and startDate = oldStartDate and endDate = oldEndDate;
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
+
+create or replace procedure updateChooses(newBidID integer, newUserID integer, newAdvID integer, newChooseDate date)
+as
+$$
+	declare newStartDate date;
+			newEndDate date;
+			newPenalty integer;
+			newLoanDuration integer;
+			newLoanerID integer; --should be the advertiser
+			newItemID integer; --should be the itemID of the advertisement item
+			
+			newLoanFee integer; -- bidprice, can see from the bidID
+			newBorrowerID integer; --can see from the bidID
+			
+	begin	
+		update chooses
+		set bidID = newBidID,
+			chooseDate = newChooseDate 
+		where userID = newUserID and advID = newAdvID;
+		
+		select startDate, endDate, penalty, loanDuration, advertiser, itemID
+		into newStartDate, newEndDate, newPenalty, newLoanDuration, newLoanerID, newItemID
+		from advertisement
+		where newAdvID = advID;
+	
+		select price, borrowerID
+		into newLoanFee, newBorrowerID
+		from bid
+		where newBidID = bidID;
+		
+		update invoicedLoan
+		set loanFee = newLoanFee, borrowerID = newBorrowerID
+		where loanerID = newLoanerID and itemID = newItemID and startDate = newStartDate and endDate = newEndDate;
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
 
 create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer, newChooseDate date)
 as
@@ -811,11 +938,26 @@ language plpgsql;
 
 create or replace procedure updateStatusOfLoanedItem(newIsReturned boolean, newInvoiceID integer)
 as
-$$		
+$$
+	declare loanEndDate date;
+			newLoanerID integer;
+			newItemID integer;
 	begin
+		select endDate, loanerId, itemID
+		into loanEndDate, newLoanerID, newItemID
+		from invoicedLoan  
+		where invoiceID = newInvoiceID;
+
 		update invoicedLoan
 		set isReturned = newIsReturned
-		where invoiceID = newInvoiceID;		
+		where invoiceID = newInvoiceID;
+		
+		if (not newIsReturned) then 
+			delete from invoicedLoan where loanerID = newLoanerID and itemID = newItemID and (loanEndDate <= startDate) and (invoiceID != newInvoiceID);
+			delete from advertisement where advertiser = newLoanerID and itemID = newItemID and (loanEndDate <= startDate);
+		end if;
+	
+	commit;
 	end;
 $$
 language plpgsql;
@@ -931,53 +1073,53 @@ VALUES
 INSERT INTO Report
 	(title,reportDate,reason,reporter,reportee)
 values
-	('No manners', '04-24-2018', 'This person never reply me with smiley face', 1, 2),
-	('Self-entitled', '04-24-2018', 'This person thinks he deserves a smiley face', 2, 1),
-	('Pedophile', '03-23-2019', 'This person is insinuating pedophilic actions and comments', 1, 7);
+	('No manners', '04-24-2017', 'This person never reply me with smiley face', 1, 2),
+	('Self-entitled', '04-24-2017', 'This person thinks he deserves a smiley face', 2, 1),
+	('Pedophile', '03-23-2018', 'This person is insinuating pedophilic actions and comments', 1, 7);
 INSERT INTO Report
 	(title,reportDate,reporter,reportee)
 VALUES
-	('Rude', '01-15-2019', 9, 2),
-	('Bad vibes', '02-22-2019', 15, 2),
-	('Salty person', '03-15-2019', 35, 2),
-	('Rude', '01-15-2019', 19, 2),
-	('Bad negotiator', '02-14-2019', 83, 2),
-	('Not gentleman/gentlewoman', '03-14-2019', 74, 2),
-	( 'No basic respect', '03-29-2019', 25, 2);
+	('Rude', '01-15-2018', 9, 2),
+	('Bad vibes', '02-22-2018', 15, 2),
+	('Salty person', '03-15-2018', 35, 2),
+	('Rude', '01-15-2018', 19, 2),
+	('Bad negotiator', '02-14-2018', 83, 2),
+	('Not gentleman/gentlewoman', '03-14-2018', 74, 2),
+	( 'No basic respect', '03-29-2018', 25, 2);
 
 --5 groups are created, only the first 3 have descriptions.
-call insertNewInterestGroup('Photography Club','For all things photos',1,'02-22-2017');
-call insertNewInterestGroup('Spiderman Fans','Live and Die by the web',5,'02-22-2017');
-call insertNewInterestGroup('Tech Geeks','Self-explanatory.  We like tech && are geeks',8,'02-22-2017');
-call insertNewInterestGroup('Refined Music People','pish-posh',3,'02-22-2017');
-call insertNewInterestGroup('Clothes Club','forever 22 i guess',1,'02-22-2017');
+call insertNewInterestGroup('Photography Club','For all things photos',1,'02-22-2016');
+call insertNewInterestGroup('Spiderman Fans','Live and Die by the web',5,'02-22-2016');
+call insertNewInterestGroup('Tech Geeks','Self-explanatory.  We like tech && are geeks',8,'02-22-2016');
+call insertNewInterestGroup('Refined Music People','pish-posh',3,'02-22-2016');
+call insertNewInterestGroup('Clothes Club','forever 22 i guess',1,'02-22-2016');
 
 
 --We have userAccounts joining interestgroups
 INSERT INTO Joins
 	(joinDate, userID, groupname)
 VALUES
-	('02-21-2018', 2, 'Photography Club'),
-	('02-24-2018', 3, 'Photography Club'),
-	('02-22-2018', 4, 'Photography Club'),
-	('02-27-2018', 2, 'Clothes Club'),
-	('02-17-2018', 4, 'Refined Music People'),
-	('01-21-2018', 6, 'Spiderman Fans'),
-	('01-24-2018', 7, 'Spiderman Fans'),
-	('01-20-2018', 9, 'Tech Geeks'),
-	('01-27-2018', 10, 'Clothes Club'),
-	('01-15-2018', 11, 'Refined Music People'),
-	('01-17-2018', 12, 'Refined Music People'),
-	('04-14-2017', 48, 'Refined Music People');
+	('02-21-2017', 2, 'Photography Club'),
+	('02-24-2017', 3, 'Photography Club'),
+	('02-22-2017', 4, 'Photography Club'),
+	('02-27-2017', 2, 'Clothes Club'),
+	('02-17-2017', 4, 'Refined Music People'),
+	('01-21-2017', 6, 'Spiderman Fans'),
+	('01-24-2017', 7, 'Spiderman Fans'),
+	('01-20-2017', 9, 'Tech Geeks'),
+	('01-27-2017', 10, 'Clothes Club'),
+	('01-15-2017', 11, 'Refined Music People'),
+	('01-17-2017', 12, 'Refined Music People'),
+	('04-14-2016', 48, 'Refined Music People');
 
 INSERT INTO OrganizedEvent
 	(eventDate,eventName,venue,organizer)
 VALUES
-	('01-17-2019', 'Beach Photography', 'East Coast Park', 'Photography Club'),
-	('01-18-2019', 'Blockchain tech: Smart Contracts','Suntec City', 'Tech Geeks'),
-	('01-19-2019', 'Adventures of Spoderman','Vivocity Movie Theatre', 'Spiderman Fans'),
-	('02-17-2019','High Street Fashion Competition', 'Scape', 'Clothes Club'),
-	('07-17-2019', 'A Night with Beethoven','Esplanade', 'Refined Music People');
+	('01-17-2018', 'Beach Photography', 'East Coast Park', 'Photography Club'),
+	('01-18-2018', 'Blockchain tech: Smart Contracts','Suntec City', 'Tech Geeks'),
+	('01-19-2018', 'Adventures of Spoderman','Vivocity Movie Theatre', 'Spiderman Fans'),
+	('02-17-2018','High Street Fashion Competition', 'Scape', 'Clothes Club'),
+	('07-17-2018', 'A Night with Beethoven','Esplanade', 'Refined Music People');
 
 
 --loanerID from 1 to 50 inclusive
@@ -1107,9 +1249,9 @@ INSERT INTO LoanerItem
 	(itemName,value,itemDescription,userID,loanFee,loanDuration)
 VALUES
 	('Fuji Camera', 500, 'Hello All, renting out a immaculate condition Camera, lightly used without usage mark. Shutter click less the 3k. Comes with all standard accessories. Self collect only at Blk 421 Hougang Ave 10, low ballers stayout.', 1, 50, 5),
-	('iPad Pro', 200, 'As good as new with no signs if usage, item in perfect condition, bought on 17th June 2017 Locally, finest tempered glass on since bought. Comes with warranty,  box and all standard accessories. Will throw in Apple original pencil, 3rd party book case.', 2, 40, 2),
+	('iPad Pro', 200, 'As good as new with no signs if usage, item in perfect condition, bought on 17th June 2016 Locally, finest tempered glass on since bought. Comes with warranty,  box and all standard accessories. Will throw in Apple original pencil, 3rd party book case.', 2, 40, 2),
 	('Toshiba Laptop', 600, 'Very good condition, Well kept and still looks new, Condition 9/10, No Battery, Intel Core(TM) 2 Duo CPU T6600 @ 2.2 GHz, DDR2 SDRAM, HDD 500GB, Memory 2GB, Windows 7 Professional', 3, 10, 1),
-	('Sony Headphones', 300, 'Hello renting a as good as new headphone , used less then 1 hr. Renting as seldom used. Comes with all standard accessories . Item is perfect conditioning with zero usage marks. Item is bought from Expansys on 24th Nov 2018. Price is firm and Low baller will be ignored.  First offer first serve . Thank you ', 4, 30, 3),
+	('Sony Headphones', 300, 'Hello renting a as good as new headphone , used less then 1 hr. Renting as seldom used. Comes with all standard accessories . Item is perfect conditioning with zero usage marks. Item is bought from Expansys on 24th Nov 2017. Price is firm and Low baller will be ignored.  First offer first serve . Thank you ', 4, 30, 3),
 	('Canon Camera Lens', 900, 'Hello all renting a full working condition lens with no box,  receipt,  warranty.  Item physical condition is 8/10.  With only light users mark which is only visible on strong sunlight. ', 5, 50, 5),
 	('Black Tuxedo', 400, 'Who doesnt love a black tuxedo', 6, 10, 1),
 	('Pink Shoes', 200, 'Not only for pedophiles', 7, 0, 2),
@@ -1160,105 +1302,106 @@ VALUES
 	('Vintage Music CD', 900, 49, 32, 5),
 	('Spiderman Movie', 200, 50, 26, 1);
 
-call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 1, 1,5,'05-01-2020');
-call insertNewAdvertisement(12, '01-04-2019', '04-02-2019', 2, 2, 2,6,'04-02-2020');
-call insertNewAdvertisement(5, '04-02-2019', '05-04-2019', 2, 3, 3,7,'05-04-2021');
-call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 4, 4,5,'05-01-2020');
-call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 5, 5,6,'07-02-2020');
-call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 6, 6,7,'05-04-2020');
-call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 7, 7,5,'05-01-2020');
-call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 8, 8,7,'07-02-2020');
-call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 9, 9,5,'05-04-2020');
+call insertNewAdvertisement(10, '03-01-2018', '05-01-2018', 2, 1, 1,5,'05-01-2019');
+call insertNewAdvertisement(12, '01-04-2018', '04-02-2018', 2, 2, 2,6,'04-02-2019');
+call insertNewAdvertisement(5, '04-02-2018', '05-04-2018', 2, 3, 3,7,'05-04-2021');
+call insertNewAdvertisement(10, '03-01-2018', '05-01-2018', 2, 4, 4,5,'05-01-2019');
+call insertNewAdvertisement(12, '01-04-2018', '07-02-2018', 2, 5, 5,6,'07-02-2019');
+call insertNewAdvertisement(15, '04-02-2018', '05-04-2018', 2, 6, 6,7,'05-04-2019');
+call insertNewAdvertisement(10, '03-01-2018', '05-01-2018', 2, 7, 7,5,'05-01-2019');
+call insertNewAdvertisement(12, '01-04-2018', '07-02-2018', 2, 8, 8,7,'07-02-2019');
+call insertNewAdvertisement(15, '04-02-2018', '05-04-2018', 2, 9, 9,5,'05-04-2019');
+call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 9, 9,5,'05-04-2020'); --we would use this for our demo
 
-call insertNewBid(64, 1,'03-01-2019',10);
-call insertNewBid(49, 1,'03-02-2019',12);
-call insertNewBid(85, 1,'03-03-2019',14);
-call insertNewBid(76, 1,'03-04-2019',16);
-call insertNewBid(57, 2,'01-04-2019',12);
-call insertNewBid(64, 3,'04-02-2019',15);
-call insertNewBid(49, 3,'05-03-2019',17);
-call insertNewBid(85, 3,'05-04-2019',19);
-call insertNewBid(85, 4,'03-01-2019',14);
-call insertNewBid(76, 4,'03-02-2019',16);
-call insertNewBid(76, 5,'01-04-2019',18);
-call insertNewBid(64, 5,'02-04-2019',20);
-call insertNewBid(57, 6,'04-02-2019',15);
-call insertNewBid(49, 6,'04-03-2019',17);
-call insertNewBid(57, 6,'04-03-2019',19);
-call insertNewBid(64, 7,'03-01-2019',10);
-call insertNewBid(49, 7,'04-02-2019',12);
-call insertNewBid(57, 7,'04-02-2019',14);
-call insertNewBid(85, 8,'02-04-2019',12);
-call insertNewBid(76, 9,'05-02-2019',16);
+call insertNewBid(64, 1,'03-01-2018',10);
+call insertNewBid(49, 1,'03-02-2018',12);
+call insertNewBid(85, 1,'03-03-2018',14);
+call insertNewBid(76, 1,'03-04-2018',16);
+call insertNewBid(57, 2,'01-04-2018',12);
+call insertNewBid(64, 3,'04-02-2018',15);
+call insertNewBid(49, 3,'05-03-2018',17);
+call insertNewBid(85, 3,'05-04-2018',19);
+call insertNewBid(85, 4,'03-01-2018',14);
+call insertNewBid(76, 4,'03-02-2018',16);
+call insertNewBid(76, 5,'01-04-2018',18);
+call insertNewBid(64, 5,'02-04-2018',20);
+call insertNewBid(57, 6,'04-02-2018',15);
+call insertNewBid(49, 6,'04-03-2018',17);
+call insertNewBid(57, 6,'04-03-2018',19);
+call insertNewBid(64, 7,'03-01-2018',10);
+call insertNewBid(49, 7,'04-02-2018',12);
+call insertNewBid(57, 7,'04-02-2018',14);
+call insertNewBid(85, 8,'02-04-2018',12);
+call insertNewBid(76, 9,'05-02-2018',16);
 	
 
 --Invoiced Loan is a loan between the first loaner and the first borrower.  I.e. id 1 and id 41, id 2 and 42 and so on.  
 --There are a total of 40 + 15 invoicedLoans.  The later 15 have reviews tagged to them
 
-call insertNewInvoicedLoan('02-19-2018', 1,41,1);
-call insertNewInvoicedLoan('02-14-2019',2,42,2);
-call insertNewInvoicedLoan('07-31-2018',3,43,3);
-call insertNewInvoicedLoan('05-31-2018',4,44,4);
-call insertNewInvoicedLoan('10-17-2018',5,45,5);
-call insertNewInvoicedLoan('01-14-2018',6,46,6);
-call insertNewInvoicedLoan('05-21-2019',7,47,7);
-call insertNewInvoicedLoan('10-04-2018',8,48,8);
-call insertNewInvoicedLoan('01-14-2019',9,49,9);
-call insertNewInvoicedLoan('05-05-2018',10,50,10);
-call insertNewInvoicedLoan('04-24-2018',11,51,11);
-call insertNewInvoicedLoan('10-08-2018',12,52,12);
-call insertNewInvoicedLoan('11-01-2019',13,53,13);
-call insertNewInvoicedLoan('01-24-2019',14,54,14);
-call insertNewInvoicedLoan('07-30-2017',15,55,15);
-call insertNewInvoicedLoan('04-18-2018',16,56,16);
-call insertNewInvoicedLoan('09-19-2018',17,57,17);
-call insertNewInvoicedLoan('10-07-2018',18,58,18);
-call insertNewInvoicedLoan('06-09-2018',19,59,19);
-call insertNewInvoicedLoan('09-09-2019',20,60,20);
-call insertNewInvoicedLoan('10-06-2018',21,61,21);
-call insertNewInvoicedLoan('03-10-2018',22,62,22);
-call insertNewInvoicedLoan('07-07-2018',23,63,23);
-call insertNewInvoicedLoan('09-09-2018',24,64,24);
-call insertNewInvoicedLoan('04-28-2018',25,65,25);
-call insertNewInvoicedLoan('09-04-2018',26,66,26);
-call insertNewInvoicedLoan('06-20-2018',27,67,27);
-call insertNewInvoicedLoan('04-12-2018',28,68,28);
-call insertNewInvoicedLoan('03-31-2018',29,69,29);
-call insertNewInvoicedLoan('05-20-2018',30,70,30);
-call insertNewInvoicedLoan('02-09-2018',31,71,31);
-call insertNewInvoicedLoan('03-27-2018',32,72,32);
-call insertNewInvoicedLoan('10-29-2017',33,73,33);
-call insertNewInvoicedLoan('07-24-2019',34,74,34);
-call insertNewInvoicedLoan('09-24-2017',35,75,35);
-call insertNewInvoicedLoan('12-08-2019',36,76,36);
-call insertNewInvoicedLoan('01-18-2019',37,77,37);
-call insertNewInvoicedLoan('06-09-2018',38,78,38);
-call insertNewInvoicedLoan('07-24-2018',39,79,39);
-call insertNewInvoicedLoan('12-08-2019',40,80,40);
+call insertNewInvoicedLoan('02-19-2017', 1,41,1);
+call insertNewInvoicedLoan('02-14-2018',2,42,2);
+call insertNewInvoicedLoan('07-31-2017',3,43,3);
+call insertNewInvoicedLoan('05-31-2017',4,44,4);
+call insertNewInvoicedLoan('10-17-2017',5,45,5);
+call insertNewInvoicedLoan('01-14-2017',6,46,6);
+call insertNewInvoicedLoan('05-21-2018',7,47,7);
+call insertNewInvoicedLoan('10-04-2017',8,48,8);
+call insertNewInvoicedLoan('01-14-2018',9,49,9);
+call insertNewInvoicedLoan('05-05-2017',10,50,10);
+call insertNewInvoicedLoan('04-24-2017',11,51,11);
+call insertNewInvoicedLoan('10-08-2017',12,52,12);
+call insertNewInvoicedLoan('11-01-2018',13,53,13);
+call insertNewInvoicedLoan('01-24-2018',14,54,14);
+call insertNewInvoicedLoan('07-30-2016',15,55,15);
+call insertNewInvoicedLoan('04-18-2017',16,56,16);
+call insertNewInvoicedLoan('09-19-2017',17,57,17);
+call insertNewInvoicedLoan('10-07-2017',18,58,18);
+call insertNewInvoicedLoan('06-09-2017',19,59,19);
+call insertNewInvoicedLoan('09-09-2018',20,60,20);
+call insertNewInvoicedLoan('10-06-2017',21,61,21);
+call insertNewInvoicedLoan('03-10-2017',22,62,22);
+call insertNewInvoicedLoan('07-07-2017',23,63,23);
+call insertNewInvoicedLoan('09-09-2017',24,64,24);
+call insertNewInvoicedLoan('04-28-2017',25,65,25);
+call insertNewInvoicedLoan('09-04-2017',26,66,26);
+call insertNewInvoicedLoan('06-20-2017',27,67,27);
+call insertNewInvoicedLoan('04-12-2017',28,68,28);
+call insertNewInvoicedLoan('03-31-2017',29,69,29);
+call insertNewInvoicedLoan('05-20-2017',30,70,30);
+call insertNewInvoicedLoan('02-09-2017',31,71,31);
+call insertNewInvoicedLoan('03-27-2017',32,72,32);
+call insertNewInvoicedLoan('10-29-2016',33,73,33);
+call insertNewInvoicedLoan('07-24-2018',34,74,34);
+call insertNewInvoicedLoan('09-24-2016',35,75,35);
+call insertNewInvoicedLoan('12-08-2018',36,76,36);
+call insertNewInvoicedLoan('01-18-2018',37,77,37);
+call insertNewInvoicedLoan('06-09-2017',38,78,38);
+call insertNewInvoicedLoan('07-24-2017',39,79,39);
+call insertNewInvoicedLoan('12-08-2018',40,80,40);
 
 
-call insertNewInvoicedLoan('02-14-2019', 1, 42, 1);
-call insertNewInvoicedLoan('07-31-2018', 2, 43, 2);
-call insertNewInvoicedLoan('05-31-2018', 3, 44, 3);
-call insertNewInvoicedLoan('10-17-2018', 4, 45, 4);
-call insertNewInvoicedLoan('01-14-2018', 1, 46, 1);
-call insertNewInvoicedLoan('06-21-2019', 2, 47, 2);
-call insertNewInvoicedLoan('10-04-2018', 3, 48, 3);
-call insertNewInvoicedLoan('01-14-2019', 1, 49, 1);
-call insertNewInvoicedLoan('05-05-2018', 2, 50, 2);
-call insertNewInvoicedLoan('04-24-2018', 3, 51, 3);
-call insertNewInvoicedLoan('09-17-2019', 1, 52, 1);
-call insertNewInvoicedLoan('02-14-2018', 2, 53, 2);
-call insertNewInvoicedLoan('03-10-2018', 3, 54, 3);
-call insertNewInvoicedLoan('09-10-2019', 1, 55, 1);
-call insertNewInvoicedLoan('08-14-2019', 2, 56, 2);
-call insertNewInvoicedLoan('09-05-2018', 3, 57, 3);
-call insertNewInvoicedLoan('02-05-2018', 2, 57, 2);
-call insertNewInvoicedLoan('07-10-2019', 1, 64, 1);
-call insertNewInvoicedLoan('02-03-2017', 3, 1, 3);
+call insertNewInvoicedLoan('02-14-2018', 1, 42, 1);
+call insertNewInvoicedLoan('07-31-2017', 2, 43, 2);
+call insertNewInvoicedLoan('05-31-2017', 3, 44, 3);
+call insertNewInvoicedLoan('10-17-2017', 4, 45, 4);
+call insertNewInvoicedLoan('01-14-2017', 1, 46, 1);
+call insertNewInvoicedLoan('06-21-2018', 2, 47, 2);
+call insertNewInvoicedLoan('10-04-2017', 3, 48, 3);
+call insertNewInvoicedLoan('01-14-2018', 1, 49, 1);
+call insertNewInvoicedLoan('05-05-2017', 2, 50, 2);
+call insertNewInvoicedLoan('04-24-2017', 3, 51, 3);
+call insertNewInvoicedLoan('09-17-2018', 1, 52, 1);
+call insertNewInvoicedLoan('02-14-2017', 2, 53, 2);
+call insertNewInvoicedLoan('03-10-2017', 3, 54, 3);
+call insertNewInvoicedLoan('09-10-2018', 1, 55, 1);
+call insertNewInvoicedLoan('08-14-2018', 2, 56, 2);
+call insertNewInvoicedLoan('09-05-2017', 3, 57, 3);
+call insertNewInvoicedLoan('02-05-2017', 2, 57, 2);
+call insertNewInvoicedLoan('07-10-2018', 1, 64, 1);
+call insertNewInvoicedLoan('02-03-2016', 3, 1, 3);
 --date format is month, day, year
 
-call insertNewChooses(5,2,2, '10-03-2019');
+call insertNewChooses(5,2,2, '10-03-2018');
 
 call updateStatusOfLoanedItem(True, 1);
 call updateStatusOfLoanedItem(True, 2);
@@ -1325,33 +1468,33 @@ call updateStatusOfLoanedItem(True,60);
 INSERT INTO UserReviewItem
  	(userID,itemOwnerID,itemID,reviewComment,reviewDate,rating,invoiceID)
 VALUES
- 	(42, 1,1, 'Enjoyable camera to use!  I really like it.', '02-17-2019', 5,41),
- 	(43, 2,2, 'This iPad was not working properly when I got it', '01-12-2019', 1,42),
- 	(44, 1,1, 'This is not as good as the other cameras I used', '02-19-2019', 2,43),
- 	(1, 3, 3, 'This Toshiba laptop is an ancient beauty','06-02-2017', 5,59);
+ 	(42, 1,1, 'Enjoyable camera to use!  I really like it.', '02-17-2018', 5,41),
+ 	(43, 2,2, 'This iPad was not working properly when I got it', '01-12-2018', 1,42),
+ 	(44, 1,1, 'This is not as good as the other cameras I used', '02-19-2018', 2,43),
+ 	(1, 3, 3, 'This Toshiba laptop is an ancient beauty','06-02-2016', 5,59);
 
  
 INSERT INTO UserReviewItem
  	(userID,itemOwnerID,itemID,reviewDate,rating,invoiceID)
 VALUES
- 	(46, 1,1, '01-17-2019', 2,45),
- 	(47, 2,2, '10-12-2019', 4,46),
- 	(48, 3,3, '02-19-2019', 1,47),
- 	(49, 1,1, '01-17-2019', 4,48),
- 	(50, 2,2, '01-12-2019', 1,49),
- 	(51, 3,3, '02-19-2019', 5,50),
- 	(52, 1,1, '10-17-2019', 1,51),
- 	(53, 2,2, '10-12-2019', 4,52),
- 	(54, 3,3, '02-19-2019', 3,53),
- 	(55, 1,1, '12-17-2019', 1,54),
- 	(56, 2,2, '09-12-2019', 2,55),
- 	(57, 3,3, '10-19-2019', 5,56),
- 	(44, 4,4, '05-31-2018', 4,4),
- 	(45, 5,5, '10-17-2018', 4,5),
- 	(46, 6,6, '05-31-2018', 4,6),
- 	(47, 7,7, '05-23-2019', 4,7),
- 	(48, 8,8, '10-10-2018', 4,8),
- 	(49, 9,9, '01-31-2019', 4,9);
+ 	(46, 1,1, '01-17-2018', 2,45),
+ 	(47, 2,2, '10-12-2018', 4,46),
+ 	(48, 3,3, '02-19-2018', 1,47),
+ 	(49, 1,1, '01-17-2018', 4,48),
+ 	(50, 2,2, '01-12-2018', 1,49),
+ 	(51, 3,3, '02-19-2018', 5,50),
+ 	(52, 1,1, '10-17-2018', 1,51),
+ 	(53, 2,2, '10-12-2018', 4,52),
+ 	(54, 3,3, '02-19-2018', 3,53),
+ 	(55, 1,1, '12-17-2018', 1,54),
+ 	(56, 2,2, '09-12-2018', 2,55),
+ 	(57, 3,3, '10-19-2018', 5,56),
+ 	(44, 4,4, '05-31-2017', 4,4),
+ 	(45, 5,5, '10-17-2017', 4,5),
+ 	(46, 6,6, '05-31-2017', 4,6),
+ 	(47, 7,7, '05-23-2018', 4,7),
+ 	(48, 8,8, '10-10-2017', 4,8),
+ 	(49, 9,9, '01-31-2018', 4,9);
 
  
 INSERT INTO Upvote
@@ -1372,9 +1515,9 @@ VALUES
  	(46, 4);
 
 
-DROP VIEW IF EXISTS biggestFanAward, worstEnemy, popularItem CASCADE;
+DROP VIEW IF EXISTS bigFanAward, enemy, popularItem CASCADE;
 
-create view biggestFanAward  (loanerID, fan) as
+create view bigFanAward  (loanerID, fan) as
 with loanerAdvertisement as
 (
 	select advertiser, advID
@@ -1417,7 +1560,7 @@ select *
 from loanersBorrowersAtLeast90Percent;
 
 
-create view worstEnemy (hated, hater) as
+create view enemy (hated, hater) as
 with reportedReporteePairs as 
 (
 	select reportee, reporter
