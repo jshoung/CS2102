@@ -17,12 +17,15 @@ import {
 import * as Icon from 'react-feather'
 
 import AddItem from '../Components/AddItem'
+import BorrowedList from '../Components/BorrowedList'
+import BrowseItems from '../Components/BrowseItems'
+import LoanHistory from '../Components/LoanHistory'
 import NavBar from '../Components/NavBar'
 import UserInterestGroups from '../Components/UserInterestGroups'
 import UserEvents from '../Components/UserEvents'
 import InterestGroups from '../InterestGroups/InterestGroups'
-import Adverisements from '../Components/Advertisements';
-import ComplexQueries from '../Components/ComplexQueries';
+import Adverisements from '../Components/Advertisements'
+import ComplexQueries from '../Components/ComplexQueries'
 
 class Main extends Component {
   state = {
@@ -48,9 +51,10 @@ class Main extends Component {
       () => this.loadUsers(),
     )
     payload = (await axios.get('/advertisements')).data
-    this.setState({advertisements: payload.data.rows})
-    payload = (await axios.get('/items')).data
-    this.setState({items: payload.data.rows})
+    this.setState({ advertisements: payload.data.rows })
+    payload = (await axios.get('/advertisements/items')).data
+    this.setState({ items: payload.data.rows })
+    console.log('payload', payload)
   }
 
   toggleLoading = (callback: () => void) => {
@@ -161,16 +165,25 @@ class Main extends Component {
           />,
         )
         break
+
       case 'Advertisements':
-        content.push(<Adverisements 
-          loadTabData={this.loadTabData}
-          currentUser={this.state.selectedUser}
-          userList={this.state.userList} 
-          items={this.state.items} 
-          advertisements={this.state.advertisements}/>)
+        content.push(
+          <Adverisements
+            loadTabData={this.loadTabData}
+            currentUser={this.state.selectedUser}
+            userList={this.state.userList}
+            items={this.state.items}
+            advertisements={this.state.advertisements}
+          />,
+        )
         break
       case 'Complex Queries':
-        content.push(<ComplexQueries items={this.state.items} userList={this.state.userList}/>)
+        content.push(
+          <ComplexQueries
+            items={this.state.items}
+            userList={this.state.userList}
+          />,
+        )
         break
       case 'Events':
         content.push(
@@ -179,6 +192,22 @@ class Main extends Component {
             toggleLoading={this.toggleLoading}
           />,
         )
+      case 'Loan History':
+        content.push(
+          <LoanHistory
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+          />,
+        )
+        content.push(
+          <BorrowedList
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+          />,
+        )
+        break
       default:
         break
     }
@@ -210,7 +239,7 @@ class Main extends Component {
       userId,
     })
     const ads = (await axios.get('/advertisements')).data
-    this.setState({advertisements: ads.data.rows}, ()=>{
+    this.setState({ advertisements: ads.data.rows }, () => {
       this.updateTab()
     })
     this.setState({ userItems: items.data.data.rows }, () => {
@@ -251,13 +280,13 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Items')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Your Items
+                      Items
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
                     <Nav.Link
-                      eventKey="Loans"
-                      onSelect={() => this.changeTab('Loans')}
+                      eventKey="Loan History"
+                      onSelect={() => this.changeTab('Loan History')}
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Loans
@@ -297,7 +326,7 @@ class Main extends Component {
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Complex Queries
-                    </Nav.Link> 
+                    </Nav.Link>
                   </Nav.Item>
                 </Nav>
               </Col>
@@ -313,6 +342,13 @@ class Main extends Component {
         return (
           <InterestGroups
             selectedUser={this.state.selectedUser}
+            toggleLoading={this.toggleLoading}
+          />
+        )
+      case 'Browse Items':
+        return (
+          <BrowseItems
+            selectedUser={selectedUser}
             toggleLoading={this.toggleLoading}
           />
         )
