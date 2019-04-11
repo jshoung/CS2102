@@ -21,6 +21,7 @@ import NavBar from '../Components/NavBar'
 import UserInterestGroups from '../Components/UserInterestGroups'
 import InterestGroups from '../InterestGroups/InterestGroups'
 import ReportUser from '../Components/ReportUser'
+import { parseMDYLongDate } from '../util/moment'
 
 class Main extends Component {
   state = {
@@ -107,7 +108,7 @@ class Main extends Component {
                 <OverlayTrigger
                   rootClose={true}
                   trigger="click"
-                  placement="right"
+                  placement="auto"
                   overlay={popover}
                 >
                   <Icon.Edit style={{ cursor: 'pointer' }} />
@@ -132,6 +133,17 @@ class Main extends Component {
           </Card>
         </CardDeck>,
       )
+    })
+  }
+
+  handleDeleteReport = (reportid: any) => async () => {
+    this.toggleLoading(async () => {
+      await axios.delete(`/reports`, {
+        data: { reportid },
+      })
+
+      await this.loadTabData()
+      this.toggleLoading(() => {})
     })
   }
 
@@ -160,6 +172,8 @@ class Main extends Component {
         return
       }
       const existingReport = this.getReportsById(reportee)
+      const reportDate = _.get(existingReport, 'reportdate')
+      const reportid = _.get(existingReport, 'reportid')
       const title = existingReport ? 'Edit Report' : 'Report User'
       const popover = (
         <Popover id="popover-basic" title={title} style={{ width: '18rem' }}>
@@ -184,19 +198,51 @@ class Main extends Component {
             style={{ width: '18rem' }}
           >
             <Card.Body>
-              <Card.Title>{name}</Card.Title>
+              <Card.Title>
+                {name}{' '}
+                {existingReport && (
+                  <OverlayTrigger
+                    rootClose={true}
+                    trigger="click"
+                    placement="auto"
+                    overlay={popover}
+                  >
+                    <Icon.Edit style={{ cursor: 'pointer' }} />
+                  </OverlayTrigger>
+                )}
+              </Card.Title>
+              <Card.Subtitle className={'mb-2'}>
+                {_.get(existingReport, 'title')}
+              </Card.Subtitle>
+              <Card.Text>{_.get(existingReport, 'reason')}</Card.Text>
             </Card.Body>
-            <Card.Footer>
-              <OverlayTrigger
-                rootClose={true}
-                trigger="click"
-                placement="right"
-                overlay={popover}
-              >
-                <Button variant="light" size="sm">
-                  {title}
+            <Card.Footer
+              style={{ display: 'flex', justifyContent: 'space-between' }}
+            >
+              {existingReport
+                ? `Reported on ${parseMDYLongDate(reportDate)}`
+                : 'This user has been behaving!'}
+
+              {existingReport ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={this.handleDeleteReport(reportid)}
+                >
+                  Delete Report
                 </Button>
-              </OverlayTrigger>
+              ) : (
+                <OverlayTrigger
+                  rootClose={true}
+                  trigger="click"
+                  placement="auto"
+                  overlay={popover}
+                >
+                  <Button variant="light" size="sm">
+                    {title}
+                  </Button>
+                </OverlayTrigger>
+              )}
             </Card.Footer>
           </Card>
         </CardDeck>,
@@ -262,8 +308,8 @@ class Main extends Component {
     const items = await axios.post(`/users/items`, {
       userId,
     })
-    const reports = await axios.post(`/reports`, {
-      userId,
+    const reports = await axios.get(`/reports`, {
+      params: { userId },
     })
     this.setState(
       { userItems: items.data.data.rows, reports: reports.data.data.rows },

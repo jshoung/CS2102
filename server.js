@@ -419,20 +419,15 @@ app.post(
 //        Reports      //
 // ******************* //
 
-app.post('/reports', [body('userId').isInt()], async (req, res) => {
-  const errors = validationResult(req)
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
-  }
-
+app.get('/reports', async (req, res) => {
   let data = await pool.query('select * from report where reporter = $1', [
-    req.body.userId,
+    req.query.userId,
   ])
 
   res.send({ data })
 })
 
-app.post('/reports/create', async (req, res) => {
+app.post('/reports', async (req, res) => {
   await pool.query(
     'insert into report (title, reportdate, reason, reporter, reportee) values ($1, $2, $3, $4, $5)',
     [
@@ -458,6 +453,13 @@ app.patch('/reports', async (req, res) => {
       req.body.reportid,
     ],
   )
+  res.sendStatus(200)
+})
+
+app.delete('/reports', async (req, res) => {
+  await pool.query('delete from report where reportid = $1', [
+    req.body.reportid,
+  ])
   res.sendStatus(200)
 })
 

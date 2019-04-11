@@ -127,7 +127,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
                 <OverlayTrigger
                   rootClose={true}
                   trigger="click"
-                  placement="right"
+                  placement="auto"
                   overlay={popover}
                 >
                   <Icon.Edit style={{ cursor: 'pointer' }} />
@@ -196,7 +196,7 @@ class UserInterestGroups extends Component<MyProps, MyState> {
           ) : (
             <Button
               className="text-center"
-              style={{ flex: '1 1 100%' }}
+              style={{ width: '97%' }}
               variant="outline-secondary"
               onClick={this.toggleCreateGroupForm}
             >

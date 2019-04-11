@@ -15,7 +15,7 @@ interface MyProps {
 
 interface MyState {
   title: string
-  reportdate: Moment
+  reportdate: string
   reason: string
 }
 
@@ -24,7 +24,7 @@ class ReportUser extends Component<MyProps, MyState> {
     super(props)
     this.state = {
       title: '',
-      reportdate: moment(),
+      reportdate: moment().format('MM-DD-YYYY'),
       reason: '',
     }
 
@@ -72,11 +72,10 @@ class ReportUser extends Component<MyProps, MyState> {
             reportee,
             reportid,
           })
-        : await axios.post(`/reports/create`, {
+        : await axios.post(`/reports`, {
             ...this.state,
             reporter,
             reportee,
-            reportdate: moment(),
           })
 
       await loadTabData()
@@ -103,7 +102,7 @@ class ReportUser extends Component<MyProps, MyState> {
           <Form.Label>Reason for Report (Optional)</Form.Label>
           <Form.Control
             name="reason"
-            type="text"
+            as="textarea"
             placeholder="Reason for Report"
             onChange={this.handleChange}
             value={this.state.reason}
