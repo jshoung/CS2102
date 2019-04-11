@@ -248,7 +248,7 @@ $$
 			reportAgainstNum integer;
 			windowDate date;
 	begin
-		windowDate := new.bidDate - interval '1' day * 7;
+		windowDate := new.bidDate - interval '7' day;
 
 		select highestBid, minimumIncrease, minimumPrice, openingDate, closingDate, advertiser
 		into previousHighestBid, adMinimumIncrease, adMinimumPrice, targetAdvOpening, targetAdvClosing, originalAdvertiser
@@ -350,47 +350,57 @@ for each row
 execute procedure checkChoosesYourOwnAdvertisementAndCorrectBidAndAtLeast3Bids();
 
 
-create or replace function checkReviewAfterLoan()
+create or replace function checkSuitableReview()
 returns trigger as 
 $$
 	declare invoiceDate date;
+			invoiceOwner integer;
+			oneWeekAgo date;
+			twoWeeksAgo date;
+			numComplaintsFromOwner integer;
+			numComplaintsFromEveryone integer;
 	begin
-		select startdate
-		into invoiceDate
+		oneWeekAgo := new.reviewDate - interval '7' day;
+		twoWeeksAgo := new.reviewDate - interval '14' day;
+
+		select startdate, borrowerID
+		into invoiceDate, invoiceOwner
 		from invoicedLoan
 		where invoiceID = new.invoiceID;
+	
+		select count(*)
+		into numComplaintsFromOwner
+		from (select * 
+			from report
+			where reportDate >= oneWeekAgo and reporter = new.itemOwnerID) as innerCall
+		group by reportee
+		having (reportee = new.userID);
+	
+		select count(*)
+		into numComplaintsFromEveryone
+		from (
+			select * 
+			from report
+			where reportDate >= twoWeeksAgo and reportee = new.userID) as innerCall
+		group by reportee
+		having reportee = new.userID;
+		
 	
 		if (new.reviewDate < invoiceDate) then 
 			raise exception 'Reviews cannot be written before the loan begins'
 				using hint = 'Reviews cannot be written before the loan begins';
 			return null;
-		else
-			return new;
-		end if;
-	end
-$$
-language plpgsql;
-
-create trigger trig2CheckReviewAfterLoan
-before
-update or insert on UserReviewItem
-for each row
-execute procedure checkReviewAfterLoan();
-
-
-create or replace function checkReviewYourOwnInvoice()
-returns trigger as 
-$$
-	declare invoiceOwner integer;
-	begin
-		select borrowerID
-		into invoiceOwner
-		from invoicedLoan
-		where invoiceID = new.invoiceID;
-	
-		if (new.userID != invoiceOwner) then 
+		elsif(new.userID != invoiceOwner) then 
 			raise exception 'Reviews can only be written with reference to your own invoices, and not someone elses'
 				using hint = 'Reviews can only be written with reference to your own invoices, and not someone elses';
+			return null;
+		elsif(numComplaintsFromOwner != 0) then 
+			raise exception 'Sorry you cannot write a review now because the item owner has made a reports against you this week.  Perhaps you could take some time to cool off'
+				using hint = 'Sorry you cannot write a review now because the item owner has made a reports against you this week.  Perhaps you could take some time to cool off';
+			return null;
+		elsif(numComplaintsFromEveryone >3) then 
+			raise exception 'Sorry you cannot write a review now because you have more than 3 reports against you in the past 2 weeks.  Perhaps you could take some time to cool off'
+				using hint = 'Sorry you cannot write a review now because you have more than 3 reports against you in the past 2 weeks.  Perhaps you could take some time to cool off';
 			return null;
 		else
 			return new;
@@ -399,11 +409,11 @@ $$
 $$
 language plpgsql;
 
-create trigger trig3CheckReviewYourOwnInvoice
+create trigger trig1CheckSuitableReview
 before
 update or insert on UserReviewItem
 for each row
-execute procedure checkReviewYourOwnInvoice();
+execute procedure checkSuitableReview();
 
 
 create or replace function checkLoanDateClash()
@@ -505,9 +515,33 @@ language plpgsql;
 
 create trigger trig2CheckInvoicedLoanClashWithCurrentAdvertisement
 before
-update or insert on InvoicedLoan
+insert or update on InvoicedLoan
 for each row
 execute procedure checkInvoicedLoanClashWithCurrentAdvertisement();
+
+
+create or replace function checkItemAlreadyLost()
+returns trigger as
+$$
+	begin
+		if (select max(invoiceID)
+		from InvoicedLoan
+		where new.loanerID = loanerID and new.itemID = itemID and new.invoiceID != invoiceID and (isReturned = false )) is not null then 
+			raise exception  'You cannot begin a loan or modify previous loans when that item is already lost'
+    			  using hint = 'You cannot begin a loan  or modify previous loans when that item is already lost';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+create trigger trig3CheckItemAlreadyLost
+before
+insert or update on InvoicedLoan
+for each row
+execute procedure checkItemAlreadyLost();
 
 
 create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash()
@@ -582,6 +616,30 @@ for each row
 execute procedure checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans();
 
 
+create or replace function checkAdvertisedItemNotAlreadyLost()
+returns trigger as
+$$
+	begin
+		if (select max(invoiceID)
+		from InvoicedLoan
+		where new.advertiser = loanerID and new.itemID = itemID and (isReturned = false )) is not null then 
+			raise exception  'You cannot advertise or modify previous advertisements for an item when that item is already lost'
+    			  using hint = 'You cannot advertise or modify previous advertisements for an item when that item is already lost';
+			return null;
+		else
+			return new;
+		end if;
+	end
+$$
+language plpgsql;
+
+
+create trigger trig3CheckAdvertisedItemNotAlreadyLost
+before
+update or insert on Advertisement
+for each row
+execute procedure checkAdvertisedItemNotAlreadyLost();
+
 
 create  or replace function checkCreatorCannotLeave()
 returns trigger as 
@@ -608,7 +666,6 @@ before
 delete on Joins
 for each row
 execute procedure checkCreatorCannotLeave();
-
 
 
 create  or replace function checkSuccessorMustBeMember()
@@ -811,11 +868,26 @@ language plpgsql;
 
 create or replace procedure updateStatusOfLoanedItem(newIsReturned boolean, newInvoiceID integer)
 as
-$$		
+$$
+	declare loanEndDate date;
+			newLoanerID integer;
+			newItemID integer;
 	begin
+		select endDate, loanerId, itemID
+		into loanEndDate, newLoanerID, newItemID
+		from invoicedLoan  
+		where invoiceID = newInvoiceID;
+
 		update invoicedLoan
 		set isReturned = newIsReturned
-		where invoiceID = newInvoiceID;		
+		where invoiceID = newInvoiceID;
+		
+		if (not newIsReturned) then 
+			delete from invoicedLoan where loanerID = newLoanerID and itemID = newItemID and (loanEndDate <= startDate) and (invoiceID != newInvoiceID);
+			delete from advertisement where advertiser = newLoanerID and itemID = newItemID and (loanEndDate <= startDate);
+		end if;
+	
+	commit;
 	end;
 $$
 language plpgsql;
@@ -1372,9 +1444,9 @@ VALUES
  	(46, 4);
 
 
-DROP VIEW IF EXISTS biggestFanAward, worstEnemy, popularItem CASCADE;
+DROP VIEW IF EXISTS bigFanAward, enemy, popularItem CASCADE;
 
-create view biggestFanAward  (loanerID, fan) as
+create view bigFanAward  (loanerID, fan) as
 with loanerAdvertisement as
 (
 	select advertiser, advID
@@ -1417,7 +1489,7 @@ select *
 from loanersBorrowersAtLeast90Percent;
 
 
-create view worstEnemy (hated, hater) as
+create view enemy (hated, hater) as
 with reportedReporteePairs as 
 (
 	select reportee, reporter
