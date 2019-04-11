@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React, { Component, useReducer } from 'react'
 import * as _ from 'lodash'
 import axios from 'axios'
 import {
@@ -19,12 +19,13 @@ import * as Icon from 'react-feather'
 import AddItem from '../Components/AddItem'
 import BorrowedList from '../Components/BorrowedList'
 import BrowseItems from '../Components/BrowseItems'
-
-import NavBar from '../Components/NavBar'
-import { parseMDYLongDate } from '../util/moment'
-import UserInterestGroups from '../Components/UserInterestGroups'
 import LoanHistory from '../Components/LoanHistory'
+import NavBar from '../Components/NavBar'
+import UserInterestGroups from '../Components/UserInterestGroups'
+import UserEvents from '../Components/UserEvents'
 import InterestGroups from '../InterestGroups/InterestGroups'
+import Adverisements from '../Components/Advertisements'
+import ComplexQueries from '../Components/ComplexQueries'
 
 class Main extends Component {
   state = {
@@ -36,10 +37,12 @@ class Main extends Component {
     content: [],
     isLoading: false,
     pageToRender: 'Profile',
+    advertisements: [],
+    items: [],
   }
 
   async componentDidMount() {
-    const payload = (await axios.get(`/users`)).data
+    let payload = (await axios.get(`/users`)).data
 
     this.setState(
       {
@@ -47,6 +50,11 @@ class Main extends Component {
       },
       () => this.loadUsers(),
     )
+    payload = (await axios.get('/advertisements')).data
+    this.setState({ advertisements: payload.data.rows })
+    payload = (await axios.get('/advertisements/items')).data
+    this.setState({ items: payload.data.rows })
+    console.log('payload', payload)
   }
 
   toggleLoading = (callback: () => void) => {
@@ -108,13 +116,6 @@ class Main extends Component {
             </Popover>
           )
 
-          const itemDescription = _.get(row, 'itemdescription')
-          const borrowerName = _.get(row, 'borrowername')
-          const loanFee = _.get(row, 'loanfee')
-          const startDate = _.get(row, 'startdate')
-          const endDate = _.get(row, 'enddate')
-          const penalty = _.get(row, 'penalty')
-
           content.push(
             <CardDeck style={{ paddingBottom: '10px' }}>
               <Card
@@ -138,10 +139,7 @@ class Main extends Component {
                   </Card.Title>
                   <Card.Subtitle>Price: ${_.get(row, 'value')}</Card.Subtitle>
                   <Card.Text>
-                    Description:{' '}
-                    {itemDescription
-                      ? `${_.get(row, 'itemdescription')}`
-                      : ' - '}
+                    Description: {_.get(row, 'itemdescription')}
                   </Card.Text>
                 </Card.Body>
                 <Card.Footer>
@@ -156,20 +154,50 @@ class Main extends Component {
           )
         })
         break
-      case 'Borrowed Items':
-        content.push(
-          <BorrowedList
-            selectedUser={selectedUser}
-            toggleLoading={this.toggleLoading}
-            loadTabData={this.loadTabData}
-          />,
-        )
+      case 'Loans':
+        // content = <div>Loan name</div>
         break
       case 'Interest Groups':
         content.push(
           <UserInterestGroups
             selectedUser={selectedUser}
             toggleLoading={this.toggleLoading}
+          />,
+        )
+        break
+
+      case 'Advertisements':
+        content.push(
+          <Adverisements
+            loadTabData={this.loadTabData}
+            currentUser={this.state.selectedUser}
+            userList={this.state.userList}
+            items={this.state.items}
+            advertisements={this.state.advertisements}
+          />,
+        )
+        break
+      case 'Complex Queries':
+        content.push(
+          <ComplexQueries
+            items={this.state.items}
+            userList={this.state.userList}
+          />,
+        )
+        break
+      case 'Events':
+        content.push(
+          <UserEvents
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+          />,
+        )
+      case 'Borrowed Items':
+        content.push(
+          <BorrowedList
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
           />,
         )
       case 'Loan History':
@@ -209,6 +237,10 @@ class Main extends Component {
 
     const items = await axios.post(`/users/items`, {
       userId,
+    })
+    const ads = (await axios.get('/advertisements')).data
+    this.setState({ advertisements: ads.data.rows }, () => {
+      this.updateTab()
     })
     this.setState({ userItems: items.data.data.rows }, () => {
       this.updateTab()
@@ -278,6 +310,33 @@ class Main extends Component {
                       Your Groups
                     </Nav.Link>
                   </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Advertisements"
+                      onSelect={() => this.changeTab('Advertisements')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Advertisements
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Events"
+                      onSelect={() => this.changeTab('Events')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Events
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Complex Queries"
+                      onSelect={() => this.changeTab('Complex Queries')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Complex Queries
+                    </Nav.Link>
+                  </Nav.Item>
                 </Nav>
               </Col>
             </Row>
@@ -291,11 +350,10 @@ class Main extends Component {
       case 'Interest Groups':
         return (
           <InterestGroups
-            selectedUser={selectedUser}
+            selectedUser={this.state.selectedUser}
             toggleLoading={this.toggleLoading}
           />
         )
-
       case 'Browse Items':
         return (
           <BrowseItems

@@ -1,3 +1,4 @@
+set datestyle = "mdy";
 -- delete tables if already exists
 DROP TABLE IF EXISTS UserAccount
 CASCADE;
@@ -91,6 +92,7 @@ create table OrganizedEvent
 (
 	eventID serial,
 	eventDate date not null,
+	eventName varchar(80) not null,
 	venue varchar(80) not null,
 	organizer varchar(80),
 	primary key (eventID),
@@ -508,7 +510,7 @@ for each row
 execute procedure checkInvoicedLoanClashWithCurrentAdvertisement();
 
 
-create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClashWithExistingInvoicedLoans()
+create  or replace function checkLoanDateWithinAdvertisementForTheSameItemDoesNotClash()
 returns trigger as 
 $$
 	begin
@@ -969,13 +971,13 @@ VALUES
 	('04-14-2017', 48, 'Refined Music People');
 
 INSERT INTO OrganizedEvent
-	(eventDate,venue,organizer)
+	(eventDate,eventName,venue,organizer)
 VALUES
-	('01-17-2019', 'East Coast Park', 'Photography Club'),
-	('01-18-2019', 'Suntec City', 'Tech Geeks'),
-	('01-19-2019', 'Vivocity Movie Theatre', 'Spiderman Fans'),
-	('02-17-2019', 'Scape', 'Clothes Club'),
-	('07-17-2019', 'Esplanade', 'Refined Music People');
+	('01-17-2019', 'Beach Photography', 'East Coast Park', 'Photography Club'),
+	('01-18-2019', 'Blockchain tech: Smart Contracts','Suntec City', 'Tech Geeks'),
+	('01-19-2019', 'Adventures of Spoderman','Vivocity Movie Theatre', 'Spiderman Fans'),
+	('02-17-2019','High Street Fashion Competition', 'Scape', 'Clothes Club'),
+	('07-17-2019', 'A Night with Beethoven','Esplanade', 'Refined Music People');
 
 
 --loanerID from 1 to 50 inclusive
@@ -1159,7 +1161,7 @@ VALUES
 	('Spiderman Movie', 200, 50, 26, 1);
 
 call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 1, 1,5,'05-01-2020');
-call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 2, 2,6,'07-02-2020');
+call insertNewAdvertisement(12, '01-04-2019', '04-02-2019', 2, 2, 2,6,'04-02-2020');
 call insertNewAdvertisement(5, '04-02-2019', '05-04-2019', 2, 3, 3,7,'05-04-2021');
 call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 4, 4,5,'05-01-2020');
 call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 5, 5,6,'07-02-2020');
@@ -1167,7 +1169,6 @@ call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 6, 6,7,'05-04-202
 call insertNewAdvertisement(10, '03-01-2019', '05-01-2019', 2, 7, 7,5,'05-01-2020');
 call insertNewAdvertisement(12, '01-04-2019', '07-02-2019', 2, 8, 8,7,'07-02-2020');
 call insertNewAdvertisement(15, '04-02-2019', '05-04-2019', 2, 9, 9,5,'05-04-2020');
-
 
 call insertNewBid(64, 1,'03-01-2019',10);
 call insertNewBid(49, 1,'03-02-2019',12);
