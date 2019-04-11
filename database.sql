@@ -303,11 +303,12 @@ returns trigger as
 $$
 	declare creatorID integer;
 			numBids integer;
+			advertisementOpeningDate date;
 			advertisementClosingDate date;
 			loanStartDate date;
 	begin
-		select advertiser, closingDate, startdate
-		into creatorID, advertisementClosingDate, loanStartDate
+		select advertiser, openingDate, closingDate, startdate
+		into creatorID, advertisementOpeningDate, advertisementClosingDate, loanStartDate
 		from Advertisement
 		where advID = new.advID;
 	
@@ -319,7 +320,7 @@ $$
 	
 		if (new.userID != creatorID) then 
 			raise exception 'You can only choose bids that you created the advertisements for'
-      using hint = 'You can only choose bids that you created the advertisements for';
+      			using hint = 'You can only choose bids that you created the advertisements for';
 			return null;
 		elsif new.bidID not in
 		(select bidID
@@ -332,6 +333,9 @@ $$
 			raise exception 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes'
      			 using hint = 'Your advertisement has to have at least 3 bids if you want to choose before the advertisement closes';
 			return null;
+		elsif (new.chooseDate < advertisementOpeningDate) then 
+			raise exception 'You can unable to choose before your advertisement has opened'
+				using hint = 'You can unable to choose before your advertisement has opened';
 		elsif (new.chooseDate >= loanStartDate) then 
 			raise exception  'You are unable to choose a bid when the loan was supposed to have already begun'
      			 using hint = 'You are unable to choose a bid when the loan was supposed to have already begun';
@@ -737,7 +741,73 @@ for each row
 execute procedure checkOnlyGroupAdminCanMakeChangesButNoOneCanChangeCreationDate();
 
 -- Procedures
-drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses, updateStatusOfLoanedItem;
+drop procedure if exists insertNewBid, insertNewInterestGroup, updateInterestGroupAdmin, insertNewAdvertisement, insertNewChooses, updateChooses, deleteChooses, updateStatusOfLoanedItem;
+
+
+create or replace procedure deleteChooses(oldUserID integer, oldAdvID integer)
+as
+$$
+	declare oldStartDate date;
+			oldEndDate date;
+			oldLoanerID integer; --should be the advertiser
+			oldItemID integer; --should be the itemID of the advertisement item
+			
+	begin	
+		delete from chooses
+		where advID  = oldAdvID and userID = oldUserID;
+		
+		select startDate, endDate, advertiser, itemID
+		into oldStartDate, oldEndDate, oldLoanerID, oldItemID
+		from advertisement
+		where oldAdvID = advID;
+		
+		delete from invoicedLoan
+		where loanerID = oldLoanerID and itemID = oldItemID and startDate = oldStartDate and endDate = oldEndDate;
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
+
+create or replace procedure updateChooses(newBidID integer, newUserID integer, newAdvID integer, newChooseDate date)
+as
+$$
+	declare newStartDate date;
+			newEndDate date;
+			newPenalty integer;
+			newLoanDuration integer;
+			newLoanerID integer; --should be the advertiser
+			newItemID integer; --should be the itemID of the advertisement item
+			
+			newLoanFee integer; -- bidprice, can see from the bidID
+			newBorrowerID integer; --can see from the bidID
+			
+	begin	
+		update chooses
+		set bidID = newBidID,
+			chooseDate = newChooseDate 
+		where userID = newUserID and advID = newAdvID;
+		
+		select startDate, endDate, penalty, loanDuration, advertiser, itemID
+		into newStartDate, newEndDate, newPenalty, newLoanDuration, newLoanerID, newItemID
+		from advertisement
+		where newAdvID = advID;
+	
+		select price, borrowerID
+		into newLoanFee, newBorrowerID
+		from bid
+		where newBidID = bidID;
+		
+		update invoicedLoan
+		set loanFee = newLoanFee, borrowerID = newBorrowerID
+		where loanerID = newLoanerID and itemID = newItemID and startDate = newStartDate and endDate = newEndDate;
+		
+	commit;
+	end;
+$$
+language plpgsql;
+
 
 create or replace procedure insertNewChooses(newBidID integer, newUserID integer, newAdvID integer, newChooseDate date)
 as
