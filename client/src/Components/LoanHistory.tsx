@@ -43,6 +43,14 @@ class LoanHistory extends Component<MyProps, MyState> {
     this.setState({ userId: userId, ...data })
   }
 
+  async handleDeclareReturn(invoiceId: string) {
+    await axios.patch('users/loanreturn', {
+      invoiceId: invoiceId,
+      isReturned: true,
+    })
+    await this.fetchLoanHistory()
+  }
+
   render() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
@@ -63,7 +71,7 @@ class LoanHistory extends Component<MyProps, MyState> {
         >
           <Card.Body>
             <Card.Title>{`Loaned ${_.get(row, 'itemname')}`}</Card.Title>
-            <Card.Subtitle />
+            <Card.Subtitle>{`Loaned to ${_.get(row, 'name')}`}</Card.Subtitle>
             <Card.Text>
               {`Start Date: ${parseMDYLongDate(
                 _.get(row, 'startdate'),
@@ -76,6 +84,21 @@ class LoanHistory extends Component<MyProps, MyState> {
               <br />
             </Card.Text>
           </Card.Body>
+          <Card.Footer>
+            {_.get(row, 'isreturned') ? (
+              ' Item has been returned'
+            ) : (
+              <Button
+                variant="light"
+                size="sm"
+                onClick={() =>
+                  this.handleDeclareReturn(_.get(row, 'invoiceid'))
+                }
+              >
+                Declare Item Return
+              </Button>
+            )}
+          </Card.Footer>
         </Card>
       </CardDeck>
     ))

@@ -181,46 +181,39 @@ app.post(
   },
 )
 
-app.patch('/users/loans', checkInvoicedLoanSchema, async (req, res) => {
-  const errors = validationResult(req)
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
-  }
+app.patch(
+  '/users/loanreturn',
+  [body('invoiceId').isInt(), body('isReturned').isBoolean()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
 
-  // Check whether InvoicedLoan exists in database
-  const { rowCount } = await pool.query(
-    'select invoiceID from InvoicedLoan where invoiceID = $1',
-    [req.body.invoiceID],
-  )
-  if (!rowCount) {
-    return res
-      .status(404)
-      .json({ errors: 'InvoicedLoan not found in the database' })
-  }
-
-  let data
-  try {
-    data = await pool.query(
-      `update InvoicedLoan set 
-        startDate = $2, endDate = $3, penalty = $4, loanFee = $5, loanerID = $6, borrowerID = $7, itemID = $8
-          where invoiceID = $1`,
-      [
-        req.body.invoiceID,
-        req.body.startDate,
-        req.body.endDate,
-        req.body.penalty,
-        req.body.loanFee,
-        req.body.loanerID,
-        req.body.borrowerID,
-        req.body.itemID,
-      ],
+    // Check whether InvoicedLoan exists in database
+    const { rowCount } = await pool.query(
+      'select invoiceID from InvoicedLoan where invoiceID = $1',
+      [req.body.invoiceId],
     )
-  } catch (error) {
-    return res.status(400).json({ errors: error })
-  }
+    if (!rowCount) {
+      return res
+        .status(404)
+        .json({ errors: 'InvoicedLoan not found in the database' })
+    }
 
-  res.send({ data })
-})
+    let data
+    try {
+      data = await pool.query(`call updateStatusOfLoanedItem($1, $2)`, [
+        req.body.isReturned,
+        req.body.invoiceId,
+      ])
+    } catch (error) {
+      return res.status(400).json({ errors: error })
+    }
+
+    res.send({ data })
+  },
+)
 
 app.delete('/users/loans', [body('invoiceID').isInt()], async (req, res) => {
   const errors = validationResult(req)
@@ -267,25 +260,25 @@ app.get(
     // Getting InvoicedLoan object where userId = loanerID
     if (req.query.isLoaner === 'true') {
       data = await pool.query(
-        `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID,itemName, value, itemDescription, name
+        `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID,itemName, value, itemDescription, name, isReturned
         from (InvoicedLoan IL 
               natural join 
               LoanerItem)
               inner join UserAccount UA
               on IL.borrowerID = UA.userID
-          where IL.loanerID = $1`,
+          where IL.loanerID = $1 order by startDate desc`,
         [req.query.userId],
       )
     } else {
       // Otherwise
       data = await pool.query(
-        `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID,itemName, value, itemDescription,name
+        `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID,itemName, value, itemDescription,name, isReturned
         from InvoicedLoan IL 
               natural join 
               LoanerItem
               inner join UserAccount UA
               on IL.loanerID = UA.userID
-          where IL.borrowerID = $1`,
+          where IL.borrowerID = $1 order by startDate desc`,
         [req.query.userId],
       )
     }

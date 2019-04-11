@@ -78,6 +78,11 @@ class BorrowedList extends Component<MyProps, MyState> {
               Item Description: {_.get(row, 'itemdescription')}
             </Card.Text>
           </Card.Body>
+          <Card.Footer>
+            {_.get(row, 'isreturned')
+              ? 'Item has been returned'
+              : 'You have yet to returned this item'}
+          </Card.Footer>
         </Card>
       </CardDeck>
     ))
