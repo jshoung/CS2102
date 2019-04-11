@@ -21,6 +21,12 @@ import NavBar from '../Components/NavBar'
 import UserInterestGroups from '../Components/UserInterestGroups'
 import InterestGroups from '../InterestGroups/InterestGroups'
 import ReportUser from '../Components/ReportUser'
+import BorrowedList from '../Components/BorrowedList'
+import BrowseItems from '../Components/BrowseItems'
+import LoanHistory from '../Components/LoanHistory'
+import UserEvents from '../Components/UserEvents'
+import Advertisements from '../Components/Advertisements'
+import ComplexQueries from '../Components/ComplexQueries'
 import { parseMDYLongDate } from '../util/moment'
 
 class Main extends Component {
@@ -34,14 +40,20 @@ class Main extends Component {
     reports: [],
     isLoading: false,
     pageToRender: 'Profile',
+    advertisements: [],
+    items: [],
   }
 
   async componentDidMount() {
-    const payload = (await axios.get(`/users`)).data
+    const data = (await axios.get(`/users`)).data.data
+    const advertisements = (await axios.get('/advertisements')).data
+    const items = (await axios.get('/items')).data
 
     this.setState(
       {
-        ...payload,
+        data,
+        advertisements,
+        items,
       },
       () => this.loadUsers(),
     )
@@ -278,6 +290,50 @@ class Main extends Component {
             toggleLoading={this.toggleLoading}
           />,
         )
+        break
+      case 'Advertisements':
+        content.push(
+          <Advertisements
+            loadTabData={this.loadTabData}
+            currentUser={this.state.selectedUser}
+            userList={this.state.userList}
+            items={this.state.items}
+            advertisements={this.state.advertisements}
+          />,
+        )
+        break
+      case 'Complex Queries':
+        content.push(
+          <ComplexQueries
+            items={this.state.items}
+            userList={this.state.userList}
+          />,
+        )
+        break
+      case 'Events':
+        content.push(
+          <UserEvents
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+          />,
+        )
+        break
+      case 'Loan History':
+        content.push(
+          <LoanHistory
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+          />,
+        )
+        content.push(
+          <BorrowedList
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+          />,
+        )
+        break
       default:
         break
     }
@@ -311,8 +367,13 @@ class Main extends Component {
     const reports = await axios.get(`/reports`, {
       params: { userId },
     })
+    const ads = (await axios.get('/advertisements')).data
     this.setState(
-      { userItems: items.data.data.rows, reports: reports.data.data.rows },
+      {
+        userItems: items.data.data.rows,
+        reports: reports.data.data.rows,
+        advertisements: ads.data.rows,
+      },
       () => {
         this.updateTab()
       },
@@ -373,6 +434,42 @@ class Main extends Component {
                       Your Groups
                     </Nav.Link>
                   </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Loan History"
+                      onSelect={() => this.changeTab('Loan History')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Loans
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Advertisements"
+                      onSelect={() => this.changeTab('Advertisements')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Advertisements
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Events"
+                      onSelect={() => this.changeTab('Events')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Events
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Complex Queries"
+                      onSelect={() => this.changeTab('Complex Queries')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Complex Queries
+                    </Nav.Link>
+                  </Nav.Item>
                 </Nav>
               </Col>
             </Row>
@@ -387,6 +484,13 @@ class Main extends Component {
         return (
           <InterestGroups
             selectedUser={this.state.selectedUser}
+            toggleLoading={this.toggleLoading}
+          />
+        )
+      case 'Browse Items':
+        return (
+          <BrowseItems
+            selectedUser={selectedUser}
             toggleLoading={this.toggleLoading}
           />
         )

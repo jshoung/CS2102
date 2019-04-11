@@ -28,6 +28,15 @@ const NavBar = (props: OwnProps) => {
           <li className="nav-item">
             <Link
               className="nav-link"
+              onClick={() => changePage('Browse Items')}
+              to="/"
+            >
+              {'Browse Items'}
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link
+              className="nav-link"
               onClick={() => changePage('Interest Groups')}
               to="/"
             >

@@ -65,11 +65,25 @@ class UserInterestGroups extends Component<MyProps, MyState> {
     })
   }
 
-  async leaveGroup(groupName: string, userId: string) {
+  async handleLeaveGroup(groupName: string, userId: string) {
     await axios
       .delete('/joins', {
         params: {
           userId,
+          groupName,
+        },
+      })
+      .catch((error) => {
+        this.showErrorModal(error.response.data.errors.hint)
+      })
+
+    this.fetchInterestGroups()
+  }
+
+  async handleDeleteGroup(groupName: string) {
+    await axios
+      .delete('/interestgroups', {
+        params: {
           groupName,
         },
       })
@@ -146,15 +160,26 @@ class UserInterestGroups extends Component<MyProps, MyState> {
                 ? `You created this group on ${parseMDYLongDate(
                     groupCreationDate,
                   )}`
-                : `Joined on ${parseMDYLongDate(groupJoinDate)}`}
-
-              <Button
-                onClick={() => this.leaveGroup(groupName, userId)}
-                variant="outline-danger"
-                size="sm"
-              >
-                Leave Group
-              </Button>
+                : `Joined on ${parseMDYLongDate(groupJoinDate)}`}{' '}
+              <div>
+                <Button
+                  style={{ marginRight: '1em' }}
+                  onClick={() => this.handleLeaveGroup(groupName, userId)}
+                  variant="outline-danger"
+                  size="sm"
+                >
+                  Leave Group
+                </Button>
+                {groupAdminId === userId && (
+                  <Button
+                    onClick={() => this.handleDeleteGroup(groupName)}
+                    variant="danger"
+                    size="sm"
+                  >
+                    Delete Group
+                  </Button>
+                )}
+              </div>
             </Card.Footer>
           </Card>
         </CardDeck>

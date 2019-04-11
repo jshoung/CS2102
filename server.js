@@ -70,6 +70,12 @@ app.get('/users', async (req, res) => {
 //        Items        //
 // ******************* //
 
+app.get('/items', async (req, res) => {
+  const data = await pool.query('select * from loanerItem')
+
+  res.send({ data })
+})
+
 app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -414,6 +420,125 @@ app.post(
     res.send({ data })
   },
 )
+
+// *************************** //
+//       Advertisements        //
+// *************************** //
+
+app.get('/advertisements', async (req, res) => {
+  const data = await pool.query('select * from advertisement')
+
+  res.send({ data })
+})
+
+app.post(
+  '/insertbid',
+  [body('borrowerId').isInt(), body('advId').isInt(), body('bidPrice').isInt()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    const currentDate = moment().format('DD-MM-YYYY')
+    let data = await pool
+      .query(
+        `
+      call insertNewBid($1, $2, $3, $4)
+    `,
+        [req.body.borrowerId, req.body.advId, currentDate, req.body.bidPrice],
+      )
+      .catch((err) => console.log(err))
+    res.send({ data })
+  },
+)
+
+// *************************** //
+//           Events            //
+// *************************** //
+
+app.get('/users/events', [query('userId').isInt()], async (req, res) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() })
+  }
+  let data = await pool.query(
+    `
+      select OE.organizer, OE.eventDate, OE.venue, OE.eventName, OE.eventID
+			from OrganizedEvent OE inner join Joins J on OE.organizer = J.groupName
+			where J.userID = $1;
+    `,
+    [req.query.userId],
+  )
+  res.send({ data })
+})
+
+app.post(
+  '/events',
+  [
+    body('organizer').isString(),
+    body('eventName').isString(),
+    body('eventDate').isString(),
+    body('venue').isString(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data
+
+    try {
+      data = await pool.query(
+        `
+        INSERT INTO OrganizedEvent
+          (eventDate,eventName,venue,organizer)
+        values($1,$2,$3,$4)
+      `,
+        [
+          req.body.eventDate,
+          req.body.eventName,
+          req.body.venue,
+          req.body.organizer,
+        ],
+      )
+    } catch (error) {
+      res.status(400).json({ errors: error })
+    }
+
+    res.send({ data })
+  },
+)
+
+app.delete('/events', [query('eventId').isInt()], async (req, res) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() })
+  }
+  let data = await pool.query(
+    `
+      delete from OrganizedEvent where eventID = $1
+    `,
+    [req.query.eventId],
+  )
+  res.send({ data })
+})
+
+// *************************** //
+//       Complex Queries       //
+// *************************** //
+
+app.get('/bigfan', async (req, res) => {
+  const data = await pool.query('select * from biggestFanAward')
+  res.send({ data })
+})
+app.get('/enemy', async (req, res) => {
+  const data = await pool.query('select * from worstEnemy')
+  res.send({ data })
+})
+app.get('/popular', async (req, res) => {
+  const data = await pool.query('select * from popularItem')
+  res.send({ data })
+})
 
 // ******************* //
 //        Reports      //
