@@ -62,7 +62,7 @@ class BorrowedList extends Component<MyProps, MyState> {
           style={{ width: '18rem' }}
         >
           <Card.Body>
-            <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
+            <Card.Title>{`Borrowed ${_.get(row, 'itemname')}`}</Card.Title>
             <Card.Subtitle />
             <Card.Subtitle>{`Item Owner: ${_.get(row, 'name')}`}</Card.Subtitle>
             <Card.Text>

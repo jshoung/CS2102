@@ -102,16 +102,12 @@ app.get('/items', [query('isListAvailable').isBoolean()], async (req, res) => {
     const currentDate = moment().format('MM-DD-YYYY')
 
     data = await pool.query(
-      `select distinct LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, max(IL.endDate), UA.name as ownerName
+      `select distinct LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, UA.name as ownerName
       from LoanerItem LI
-      left outer join 
-      InvoicedLoan IL
-      on LI.userID = IL.loanerID and LI.itemId = IL.itemID
-      left outer join
+      natural join
       UserAccount UA
-      on UA.userId = LI.userId
-      group by LI.itemid, LI.itemname, LI.value, LI.itemdescription, LI.userId, UA.name
-      having max(IL.endDate) < $1`,
+      where not exists( select 1 from LoanerItem LI2 natural join InvoicedLoan IL2 
+                          where LI.itemID = LI2.itemID and (IL2.isReturned is false or $1 between IL2.startDate and IL2.endDate))`,
       [currentDate],
     )
   } else {

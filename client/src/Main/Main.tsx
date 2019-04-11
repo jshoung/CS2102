@@ -192,14 +192,6 @@ class Main extends Component {
             toggleLoading={this.toggleLoading}
           />,
         )
-      case 'Borrowed Items':
-        content.push(
-          <BorrowedList
-            selectedUser={selectedUser}
-            toggleLoading={this.toggleLoading}
-            loadTabData={this.loadTabData}
-          />,
-        )
       case 'Loan History':
         content.push(
           <LoanHistory
@@ -208,6 +200,14 @@ class Main extends Component {
             loadTabData={this.loadTabData}
           />,
         )
+        content.push(
+          <BorrowedList
+            selectedUser={selectedUser}
+            toggleLoading={this.toggleLoading}
+            loadTabData={this.loadTabData}
+          />,
+        )
+        break
       default:
         break
     }
@@ -280,7 +280,7 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Items')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Your Items
+                      Items
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
@@ -289,16 +289,7 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Loan History')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Loan History
-                    </Nav.Link>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <Nav.Link
-                      eventKey="Borrowed Items"
-                      onSelect={() => this.changeTab('Borrowed Items')}
-                      disabled={_.isEmpty(selectedUser)}
-                    >
-                      Borrowed Items
+                      Loans
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
