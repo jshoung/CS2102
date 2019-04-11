@@ -32,7 +32,8 @@ import { parseMDYLongDate } from '../util/moment'
 class Main extends Component {
   state = {
     data: {},
-    userList: [],
+    userList: {},
+    userDropdownList: [],
     selectedUser: {},
     selectedTab: '',
     userItems: [],
@@ -41,19 +42,17 @@ class Main extends Component {
     isLoading: false,
     pageToRender: 'Profile',
     advertisements: [],
-    items: [],
+    items: {},
   }
 
   async componentDidMount() {
     const data = (await axios.get(`/users`)).data.data
     const advertisements = (await axios.get('/advertisements')).data
-    const items = (await axios.get('/items')).data
 
     this.setState(
       {
         data,
         advertisements,
-        items,
       },
       () => this.loadUsers(),
     )
@@ -72,17 +71,19 @@ class Main extends Component {
   loadUsers = () => {
     const { data } = this.state
 
-    let userList: any[] = []
+    let userDropdownList: any[] = []
+    let userList: any = {}
     _.get(data, 'rows').forEach((row: any) => {
       let name = row.name
       let userid = row.userid
-      userList.push(
+      userList[userid] = name
+      userDropdownList.push(
         <Dropdown.Item onSelect={() => this.changeUser(name, userid)}>
           {name}
         </Dropdown.Item>,
       )
     })
-    this.setState({ userList })
+    this.setState({ userDropdownList, userList })
   }
 
   renderItems = (content: any[]) => {
@@ -361,18 +362,21 @@ class Main extends Component {
     const { selectedUser } = this.state
     const userId = _.get(selectedUser, 'userId')
 
-    const items = await axios.post(`/users/items`, {
+    const allItems = (await axios.get('/items')).data.data.rows
+    const userItems = await axios.post(`/users/items`, {
       userId,
     })
     const reports = await axios.get(`/reports`, {
       params: { userId },
     })
     const ads = (await axios.get('/advertisements')).data
+    const items = _.keyBy(allItems, 'itemid')
     this.setState(
       {
-        userItems: items.data.data.rows,
+        userItems: userItems.data.data.rows,
         reports: reports.data.data.rows,
         advertisements: ads.data.rows,
+        items,
       },
       () => {
         this.updateTab()
@@ -504,13 +508,18 @@ class Main extends Component {
   }
 
   render() {
-    const { selectedUser, userList, isLoading, pageToRender } = this.state
+    const {
+      selectedUser,
+      userDropdownList,
+      isLoading,
+      pageToRender,
+    } = this.state
 
     return (
       <>
         <NavBar
           selectedUser={selectedUser}
-          userList={userList}
+          userDropdownList={userDropdownList}
           changePage={this.changePage}
         />
         {isLoading ? (

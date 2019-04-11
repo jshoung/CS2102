@@ -3,7 +3,7 @@ import { Table } from 'react-bootstrap'
 import axios from 'axios'
 
 class ComplexQueries extends Component<
-  { items: any[]; userList: any[] },
+  { items: any; userList: any },
   { bigFan: any[]; enemy: any[]; popular: any[] }
 > {
   constructor(props: any) {
@@ -13,22 +13,25 @@ class ComplexQueries extends Component<
       enemy: [],
       popular: [],
     }
-    this.getComplexQueries()
   }
-  getComplexQueries = async () => {
+
+  async componentDidMount() {
     const bigFan = (await axios.get('/bigfan')).data.data.rows
     const enemy = (await axios.get('/enemy')).data.data.rows
     const popular = (await axios.get('/popular')).data.data.rows
     console.log(popular)
+
     this.setState({ bigFan, enemy, popular })
   }
+
   render() {
     const { bigFan, enemy, popular } = this.state
     const { userList, items } = this.props
+
     let table1: any[] = []
     bigFan.forEach((user) => {
-      const username = userList[user.loanerid - 1].props.children
-      const fanName = userList[user.fan - 1].props.children
+      const username = userList[user.loanerid]
+      const fanName = userList[user.fan]
       table1.push(
         <tr>
           <td>{user.loanerid}</td>
@@ -38,10 +41,11 @@ class ComplexQueries extends Component<
         </tr>,
       )
     })
+
     let table2: any[] = []
     enemy.forEach((user) => {
-      const username = userList[user.hated - 1].props.children
-      const fanName = userList[user.hater - 1].props.children
+      const username = userList[user.hated]
+      const fanName = userList[user.hater]
       table2.push(
         <tr>
           <td>{user.hated}</td>
@@ -51,12 +55,12 @@ class ComplexQueries extends Component<
         </tr>,
       )
     })
+
     let table3: any[] = []
     popular.forEach((list) => {
-      console.log(items)
-      const first = items[list.mostpopularitem - 1]
-      const second = items[list.secondmostpopularitem - 1]
-      const third = items[list.thirdmostpopularitem - 1]
+      const first = items[list.mostpopularitem]
+      const second = items[list.secondmostpopularitem]
+      const third = items[list.thirdmostpopularitem]
       table3.push(
         <tr>
           <td>{list.year}</td>
@@ -67,6 +71,7 @@ class ComplexQueries extends Component<
         </tr>,
       )
     })
+
     return (
       <div>
         <Table striped bordered>
@@ -107,4 +112,5 @@ class ComplexQueries extends Component<
     )
   }
 }
+
 export default ComplexQueries

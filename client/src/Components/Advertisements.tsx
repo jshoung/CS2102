@@ -1,13 +1,14 @@
 import React, { Component } from 'react'
-import { CardDeck, Card, Button, Form } from 'react-bootstrap'
+import * as _ from 'lodash'
+import { CardDeck, Card } from 'react-bootstrap'
 import Bid from './Bid'
 import axios from 'axios'
 
 class Advertisements extends Component<{
   loadTabData: any
   currentUser: any
-  items: any[]
-  userList: any[]
+  items: any
+  userList: any
   advertisements: any[]
 }> {
   placeBid = async (bid: any, advid: any) => {
@@ -26,12 +27,12 @@ class Advertisements extends Component<{
     let content: any[] = []
     advertisements.forEach((advertisement) => {
       const currentDate = new Date()
-      const userid = advertisement.advertiser
-      const username = userList[userid - 1].props.children
+      const userid = _.get(advertisement, 'advertiser')
+      const username = userList[userid]
       const itemid = advertisement.itemid
-      const itemName = items[itemid - 1].itemname
+      const itemName = items[itemid].itemname
       const highestBidderId = advertisement.highestbidder
-      const highestBidder = userList[highestBidderId - 1].props.children
+      const highestBidder = userList[highestBidderId]
       const opening = new Date(advertisement.openingdate)
       const closing = new Date(advertisement.closingdate)
       const openingDate =
@@ -47,7 +48,7 @@ class Advertisements extends Component<{
         '/' +
         closing.getFullYear()
       let bid = null
-      if (currentUser.userId == userid) {
+      if (currentUser.userId === userid) {
         bid = <h3>You can't bid for your own items!</h3>
       } else if (currentDate < opening || currentDate > closing) {
         bid = <h3>Closed for bidding!</h3>
