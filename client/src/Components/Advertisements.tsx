@@ -47,6 +47,18 @@ class Advertisements extends Component<{
         (closing.getMonth() + 1) +
         '/' +
         closing.getFullYear()
+      let currentBid = null
+      if (advertisement.highestbid !== null) {
+        currentBid = <Card.Subtitle>
+          Current Bid: ${advertisement.highestbid}
+        </Card.Subtitle>
+      }
+      let nextBid = advertisement.minimumprice
+      let currentBidder = null
+      if (advertisement.highestbidder !== null) {
+        currentBidder = <Card.Text>By: {highestBidder}</Card.Text>
+        nextBid = advertisement.highestbid + advertisement.minimumincrease
+      }
       let bid = null
       if (currentUser.userId === userid) {
         bid = <h3>You can't bid for your own items!</h3>
@@ -57,11 +69,11 @@ class Advertisements extends Component<{
           <Bid
             advid={advertisement.advid}
             placeBid={this.placeBid}
-            nextBid={advertisement.highestbid + advertisement.minimumincrease}
+            nextBid={nextBid}
           />
         )
       }
-
+      
       content.push(
         <CardDeck style={{ paddingBottom: '10px' }}>
           <Card
@@ -81,13 +93,11 @@ class Advertisements extends Component<{
                 <br />
                 Bidding Time: {openingDate} to {closingDate}
               </Card.Text>
-              <Card.Subtitle>
-                Current Bid: ${advertisement.highestbid}
-              </Card.Subtitle>
-              <Card.Text>By: {highestBidder}</Card.Text>
+                {currentBid}
+                {currentBidder}
               <Card.Subtitle>
                 Next Possible Bid: $
-                {advertisement.highestbid + advertisement.minimumincrease}
+                {nextBid}
               </Card.Subtitle>
             </Card.Body>
             <Card.Footer>{bid}</Card.Footer>
