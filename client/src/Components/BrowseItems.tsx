@@ -3,6 +3,8 @@ import axios from 'axios'
 import _ from 'lodash'
 import { Col, Row, Card, Container, CardDeck, Button } from 'react-bootstrap'
 
+import ErrorModal from './ErrorModal'
+
 interface MyProps {
   selectedUser: object
   toggleLoading: (callback: () => void) => void
@@ -10,6 +12,7 @@ interface MyProps {
 
 interface MyState {
   data: { rows: any }
+  errorMessage: string
 }
 
 class BrowseItems extends Component<MyProps, MyState> {
@@ -17,6 +20,7 @@ class BrowseItems extends Component<MyProps, MyState> {
     super(props)
     this.state = {
       data: { rows: [] },
+      errorMessage: '',
     }
   }
 
@@ -36,17 +40,25 @@ class BrowseItems extends Component<MyProps, MyState> {
     this.setState({ ...data })
   }
 
+  showErrorModal(errorMessage: string) {
+    this.setState({ errorMessage: errorMessage })
+  }
+
   async handleBorrowItem(row: any) {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
     const loanerId = _.get(row, 'userid')
     const itemId = _.get(row, 'itemid')
 
-    await axios.post('/users/loans', {
-      loanerId: loanerId,
-      borrowerId: userId,
-      itemId: itemId,
-    })
+    await axios
+      .post('/users/loans', {
+        loanerId: loanerId,
+        borrowerId: userId,
+        itemId: itemId,
+      })
+      .catch((error) => {
+        this.showErrorModal(error.toString())
+      })
 
     await this.fetchAvailableItems()
   }
@@ -100,6 +112,12 @@ class BrowseItems extends Component<MyProps, MyState> {
         <Row style={{ paddingBottom: '20px' }}>
           <Col>{this.renderAvailableItems(rows)}</Col>
         </Row>
+        <ErrorModal
+          message={this.state.errorMessage}
+          closeModal={() => {
+            this.setState({ errorMessage: '' })
+          }}
+        />
       </Container>
     )
   }
