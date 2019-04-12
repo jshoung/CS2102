@@ -502,7 +502,7 @@ app.post(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() })
     }
-    const currentDate = moment().format('DD-MM-YYYY')
+    const currentDate = moment().format('MM-DD-YYYY')
     let data = await pool
       .query(
         `
