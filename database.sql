@@ -1393,7 +1393,6 @@ call insertNewInvoicedLoan('01-14-2018', 1, 49, 1);
 call insertNewInvoicedLoan('05-05-2017', 2, 50, 2);
 call insertNewInvoicedLoan('04-24-2017', 3, 51, 3);
 call insertNewInvoicedLoan('09-17-2018', 1, 52, 1);
-call insertNewInvoicedLoan('09-17-2019', 1, 52, 1);
 call insertNewInvoicedLoan('02-14-2017', 2, 53, 2);
 call insertNewInvoicedLoan('03-10-2017', 3, 54, 3);
 call insertNewInvoicedLoan('09-10-2018', 1, 55, 1);
@@ -1402,6 +1401,7 @@ call insertNewInvoicedLoan('09-05-2017', 3, 57, 3);
 call insertNewInvoicedLoan('02-05-2017', 2, 57, 2);
 call insertNewInvoicedLoan('07-10-2018', 1, 64, 1);
 call insertNewInvoicedLoan('02-03-2016', 3, 1, 3);
+call insertNewInvoicedLoan('09-17-2019', 1, 52, 1);
 --date format is month, day, year
 
 call insertNewChooses(5,2,2, '10-03-2018');
