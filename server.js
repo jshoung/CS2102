@@ -79,7 +79,7 @@ app.get('/items', async (req, res) => {
     const currentDate = moment().format('MM-DD-YYYY')
 
     data = await pool.query(
-      `select distinct LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, UA.name as ownerName
+      `select distinct LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, LI.loanfee, LI.loanduration, UA.name as ownerName
       from LoanerItem LI
       natural join
       UserAccount UA
@@ -520,6 +520,17 @@ app.post(
   '/insertbid',
   [body('borrowerId').isInt(), body('advId').isInt(), body('bidPrice').isInt()],
   async (req, res) => {
+    // Check whether user is a borrower
+    const { rowCount } = await pool.query(
+      'select userId from borrower where userId = $1',
+      [req.body.borrowerId],
+    )
+    if (!rowCount) {
+      await pool.query('insert into borrower (userid) values ($1)', [
+        req.body.borrowerId,
+      ])
+    }
+
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() })
