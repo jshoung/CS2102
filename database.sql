@@ -52,14 +52,14 @@ create table Report
 	reportDate date not null,
 	reason varchar(8000),
 	reporter integer,
-	reportee integer,
+	reportee integer not null,
 	primary key (reportID),
 	foreign key (reporter) references UserAccount (userID) on delete set null,
 	foreign key (reportee) references UserAccount (userID) on delete cascade,
 	--You cannot report yourself
 	check (reportee != reporter)
 );
-
+--group admin cannot simply delete his account.  he needs to hoto responsibilities first.
 create table InterestGroup
 (
 	groupName varchar(80),
@@ -68,8 +68,8 @@ create table InterestGroup
 	creationDate date not null,
 	lastModifiedBy integer not null,
 	primary key (groupName),
-	foreign key (groupAdminID) references UserAccount (userID) on delete set null,
-	foreign key (lastModifiedBy) references UserAccount (userID) on delete set null
+	foreign key (groupAdminID) references UserAccount (userID) on delete no action,
+	foreign key (lastModifiedBy) references UserAccount (userID) on delete no action
 );
 
 
@@ -127,6 +127,7 @@ create table LoanerItem
 	check(loanDuration > 0)
 );
 
+--we want to keep the invoices, as we want to see which item has been borrowed by how many people
 create table InvoicedLoan
 (
 	invoiceID serial,
@@ -135,12 +136,12 @@ create table InvoicedLoan
 	penalty integer not null,
 	loanFee integer not null,
 	loanerID integer not null,
-	borrowerID integer not null,
+	borrowerID integer,
 	itemID integer,
 	isReturned boolean default null,
 	primary key (invoiceID),
 	foreign key (loanerID)references Loaner (userID) on delete cascade,
-	foreign key (borrowerID) references Borrower (userID) on delete cascade,
+	foreign key (borrowerID) references Borrower (userID) on delete set null,
 	foreign key (loanerID, itemID) references LoanerItem (userID, itemID) on delete cascade,
 	check(startDate <= endDate),
 	check(loanerID != borrowerID)
@@ -149,6 +150,7 @@ create table InvoicedLoan
 --we would like the ratings to be between 0 and 5
 --users are ony allowed to review an item if they have used that particular item before
 --these constraints are enforced in triggers
+--if the invoice is deleted, this review should no longer be valid, hence delete.
 create table UserReviewItem
 (
 	reviewID serial,
@@ -162,7 +164,7 @@ create table UserReviewItem
 	primary key (reviewID),
 	foreign key (userID) references UserAccount (userID) on delete set null,
 	foreign key (itemOwnerID, itemID) references LoanerItem (userID, itemID) on delete cascade,
-	foreign key (invoiceID) references InvoicedLoan (invoiceID) on delete set null,
+	foreign key (invoiceID) references InvoicedLoan (invoiceID) on delete cascade,
 	--ratings have to be between 0 to 5 inclusive
 	check(0 <= rating and rating <=5 )
 );
@@ -1391,6 +1393,7 @@ call insertNewInvoicedLoan('01-14-2018', 1, 49, 1);
 call insertNewInvoicedLoan('05-05-2017', 2, 50, 2);
 call insertNewInvoicedLoan('04-24-2017', 3, 51, 3);
 call insertNewInvoicedLoan('09-17-2018', 1, 52, 1);
+call insertNewInvoicedLoan('09-17-2019', 1, 52, 1);
 call insertNewInvoicedLoan('02-14-2017', 2, 53, 2);
 call insertNewInvoicedLoan('03-10-2017', 3, 54, 3);
 call insertNewInvoicedLoan('09-10-2018', 1, 55, 1);
@@ -1453,7 +1456,6 @@ call updateStatusOfLoanedItem(True,47);
 call updateStatusOfLoanedItem(True,48);
 call updateStatusOfLoanedItem(True,49);
 call updateStatusOfLoanedItem(True,50);
-call updateStatusOfLoanedItem(True,51);
 call updateStatusOfLoanedItem(True,52);
 call updateStatusOfLoanedItem(True,53);
 call updateStatusOfLoanedItem(True,54);
