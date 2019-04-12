@@ -77,7 +77,34 @@ app.get('/users', async (req, res) => {
 // ******************* //
 
 app.get('/items', async (req, res) => {
-  const data = await pool.query('select * from loanerItem')
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() })
+  }
+  if (req.query.isListAvailable) {
+    const currentDate = moment().format('MM-DD-YYYY')
+
+    data = await pool.query(
+      `select distinct LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, UA.name as ownerName
+      from LoanerItem LI
+      natural join
+      UserAccount UA
+      where not exists( select 1 from LoanerItem LI2 natural join InvoicedLoan IL2 
+                          where LI.itemID = LI2.itemID and (IL2.isReturned is false or $1 between IL2.startDate and IL2.endDate))`,
+      [currentDate],
+    )
+  } else {
+    data = await pool.query(
+      `select LI.itemId, LI.itemName, LI.value, LI.itemDescription, LI.userId, IL.invoiceId, UA.name as ownerName
+                    from LoanerItem LI
+                    left outer join 
+                    InvoicedLoan IL
+                    on LI.userID = IL.loanerID and LI.itemId = IL.itemID
+                    left outer join
+                    UserAccount UA
+                    on UA.userId = LI.userId`,
+    )
+  }
 
   res.send({
     data,
@@ -112,6 +139,17 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
 })
 
 app.post('/add-item', async (req, res) => {
+  // Check whether user is a loaner
+  const { rowCount } = await pool.query(
+    'select userId from loaner where userId = $1',
+    [req.body.userId],
+  )
+  if (!rowCount) {
+    await pool.query('insert into loaner (userid) values ($1)', [
+      req.body.userId,
+    ])
+  }
+
   await pool.query(
     'insert into loaneritem (itemname, value, itemdescription, userid, loanfee, loanduration) values ($1, $2, $3, $4, $5, $6)',
     [
@@ -154,6 +192,17 @@ app.post(
     body('itemId').isInt(),
   ],
   async (req, res) => {
+    // Check whether user is a borrower
+    const { rowCount } = await pool.query(
+      'select userId from borrower where userId = $1',
+      [req.body.borrowerId],
+    )
+    if (!rowCount) {
+      await pool.query('insert into borrower (userid) values ($1)', [
+        req.body.borrowerId,
+      ])
+    }
+
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -436,6 +485,24 @@ app.patch(
   },
 )
 
+app.delete(
+  '/interestgroups',
+  [query('groupName').isString()],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    let data = await pool.query(
+      `
+      delete from InterestGroup where groupName = $1
+    `,
+      [req.query.groupName],
+    )
+    res.send({ data })
+  },
+)
+
 // *************************** //
 //            Joins            //
 // *************************** //
@@ -569,7 +636,7 @@ app.post(
         errors: errors.array(),
       })
     }
-    const currentDate = moment().format('DD-MM-YYYY')
+    const currentDate = moment().format('MM-DD-YYYY')
     let data = await pool
       .query(
         `

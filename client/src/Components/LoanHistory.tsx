@@ -50,6 +50,13 @@ class LoanHistory extends Component<MyProps, MyState> {
     })
     await this.fetchLoanHistory()
   }
+  async handleDeclareLost(invoiceId: string) {
+    await axios.patch('users/loanreturn', {
+      invoiceId: invoiceId,
+      isReturned: false,
+    })
+    await this.fetchLoanHistory()
+  }
 
   render() {
     const { selectedUser } = this.props
@@ -87,16 +94,31 @@ class LoanHistory extends Component<MyProps, MyState> {
           <Card.Footer>
             {_.get(row, 'isreturned') ? (
               ' Item has been returned'
+            ) : _.get(row, 'isreturned') === null ? (
+              <>
+                <Button
+                  variant="light"
+                  style={{ marginRight: '5px' }}
+                  size="sm"
+                  onClick={() =>
+                    this.handleDeclareReturn(_.get(row, 'invoiceid'))
+                  }
+                >
+                  Declare Item Return
+                </Button>
+                <Button
+                  variant="light"
+                  style={{ marginLeft: '5px' }}
+                  size="sm"
+                  onClick={() =>
+                    this.handleDeclareLost(_.get(row, 'invoiceid'))
+                  }
+                >
+                  Declare Item Lost
+                </Button>
+              </>
             ) : (
-              <Button
-                variant="light"
-                size="sm"
-                onClick={() =>
-                  this.handleDeclareReturn(_.get(row, 'invoiceid'))
-                }
-              >
-                Declare Item Return
-              </Button>
+              'Item Lost'
             )}
           </Card.Footer>
         </Card>

@@ -450,7 +450,7 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Interest Groups')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Your Groups
+                      Groups
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
@@ -486,7 +486,7 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Complex Queries')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Complex Queries
+                      Statistics
                     </Nav.Link>
                   </Nav.Item>
                 </Nav>
