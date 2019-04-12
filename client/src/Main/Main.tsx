@@ -13,6 +13,7 @@ import {
   Button,
   OverlayTrigger,
   Popover,
+  Carousel,
 } from 'react-bootstrap'
 import * as Icon from 'react-feather'
 
@@ -343,19 +344,41 @@ class Main extends Component {
   }
 
   renderWelcomeMessage = () => (
-    <CardDeck style={{ paddingBottom: '10px' }}>
-      <Card
-        className="text-center"
-        bg="dark"
-        text="white"
-        border="dark"
-        style={{ width: '18rem' }}
-      >
-        <Card.Body>
-          <Card.Title>Welcome to CarouShare!</Card.Title>
-        </Card.Body>
-      </Card>
-    </CardDeck>
+    <Carousel>
+      <Carousel.Item>
+        <img
+          className="d-block w-100"
+          src="/images/pic2.jpg"
+          alt="First slide"
+          style={{
+            maxHeight: '600px',
+            height: 'auto',
+            width: 'auto',
+            borderRadius: '6px',
+          }}
+        />
+        <Carousel.Caption>
+          <h3>Welcome to CarouShare</h3>
+        </Carousel.Caption>
+      </Carousel.Item>
+      <Carousel.Item>
+        <img
+          className="d-block w-100"
+          src="/images/pic.jpg"
+          alt="Second slide"
+          style={{
+            maxHeight: '600px',
+            height: 'auto',
+            width: 'auto',
+            borderRadius: '6px',
+          }}
+        />
+
+        <Carousel.Caption>
+          <h3>Start Sharing Now</h3>
+        </Carousel.Caption>
+      </Carousel.Item>
+    </Carousel>
   )
 
   loadTabData = async () => {
