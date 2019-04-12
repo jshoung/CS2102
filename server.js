@@ -47,7 +47,11 @@ app.use(compression())
 app.use(helmet())
 app.use(morgan('combined'))
 app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
+app.use(
+  bodyParser.urlencoded({
+    extended: true,
+  }),
+)
 app.use(express.static(path.join(__dirname, 'client/build')))
 app.use(logRequestStart)
 app.use(cors())
@@ -63,7 +67,9 @@ ENDPOINTS
 app.get('/users', async (req, res) => {
   const data = await pool.query('select * from useraccount')
 
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 // ******************* //
@@ -100,13 +106,17 @@ app.get('/items', async (req, res) => {
     )
   }
 
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 app.post('/users/items', [body('userId').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      errors: errors.array(),
+    })
   }
 
   // Check whether user exists in database
@@ -115,13 +125,17 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
     [req.body.userId],
   )
   if (!rowCount) {
-    return res.status(404).json({ errors: 'User not found in the database' })
+    return res.status(404).json({
+      errors: 'User not found in the database',
+    })
   }
   let data = await pool.query('select * from LoanerItem where userID = $1', [
     req.body.userId,
   ])
 
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 app.post('/add-item', async (req, res) => {
@@ -191,7 +205,9 @@ app.post(
 
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
 
     const currentDate = moment().format('MM-DD-YYYY')
@@ -203,11 +219,14 @@ app.post(
         [currentDate, req.body.loanerId, req.body.borrowerId, req.body.itemId],
       )
     } catch (error) {
-      error.message = 'LOL'
-      return res.status(400).json({ errors: error })
+      return res.status(400).json({
+        errors: error,
+      })
     }
 
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
@@ -217,7 +236,9 @@ app.patch(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
 
     // Check whether InvoicedLoan exists in database
@@ -226,9 +247,9 @@ app.patch(
       [req.body.invoiceId],
     )
     if (!rowCount) {
-      return res
-        .status(404)
-        .json({ errors: 'InvoicedLoan not found in the database' })
+      return res.status(404).json({
+        errors: 'InvoicedLoan not found in the database',
+      })
     }
 
     let data
@@ -238,17 +259,23 @@ app.patch(
         req.body.invoiceId,
       ])
     } catch (error) {
-      return res.status(400).json({ errors: error })
+      return res.status(400).json({
+        errors: error,
+      })
     }
 
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
 app.delete('/users/loans', [body('invoiceID').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      errors: errors.array(),
+    })
   }
 
   // Check whether InvoicedLoan exists in database
@@ -257,9 +284,9 @@ app.delete('/users/loans', [body('invoiceID').isInt()], async (req, res) => {
     [req.body.invoiceID],
   )
   if (!rowCount) {
-    return res
-      .status(404)
-      .json({ errors: 'InvoicedLoan not found in the database' })
+    return res.status(404).json({
+      errors: 'InvoicedLoan not found in the database',
+    })
   }
 
   let data
@@ -270,10 +297,14 @@ app.delete('/users/loans', [body('invoiceID').isInt()], async (req, res) => {
       [req.body.invoiceID],
     )
   } catch (error) {
-    return res.status(400).json({ errors: error })
+    return res.status(400).json({
+      errors: error,
+    })
   }
 
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 app.get(
@@ -282,7 +313,9 @@ app.get(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
 
     let data
@@ -313,7 +346,9 @@ app.get(
       )
     }
 
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 // *************************** //
@@ -332,7 +367,9 @@ app.get('/interestgroups', async (req, res) => {
     `,
     [req.query.userId],
   )
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 app.get(
@@ -347,7 +384,9 @@ app.get(
     `,
       [req.query.groupName],
     )
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
@@ -357,7 +396,9 @@ app.get(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
     let data = await pool.query(
       `
@@ -369,7 +410,9 @@ app.get(
     `,
       [req.query.userId],
     )
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
@@ -383,7 +426,9 @@ app.post(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
     const currentDate = moment().format('MM-DD-YYYY')
     let data = await pool.query(
@@ -397,7 +442,9 @@ app.post(
         currentDate,
       ],
     )
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
@@ -412,7 +459,9 @@ app.patch(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
 
     let data
@@ -425,10 +474,14 @@ app.patch(
       ])
     } catch (error) {
       console.log('Error message:', error.hint)
-      return res.status(400).json({ errors: error })
+      return res.status(400).json({
+        errors: error,
+      })
     }
 
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
@@ -460,7 +513,9 @@ app.delete(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
     let data
 
@@ -472,9 +527,13 @@ app.delete(
       )
     } catch (error) {
       console.log('Error message:', error.hint)
-      return res.status(400).json({ errors: error })
+      return res.status(400).json({
+        errors: error,
+      })
     }
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
@@ -484,7 +543,9 @@ app.post(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
     let data
 
@@ -500,9 +561,13 @@ app.post(
         [currentDate, req.body.userId, req.body.groupName],
       )
     } catch (error) {
-      return res.status(400).json({ errors: error })
+      return res.status(400).json({
+        errors: error,
+      })
     }
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
@@ -512,9 +577,54 @@ app.post(
 
 app.get('/advertisements', async (req, res) => {
   const data = await pool.query('select * from advertisement')
-
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
+
+app.post(
+  '/insertad',
+  [
+    body('minPrice').isInt(),
+    body('minIncrease').isInt(),
+    body('userid').isInt(),
+    body('itemid').isInt(),
+    body('duration').isInt(),
+    body('adDuration').isInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errors: errors.array(),
+      })
+    }
+    const openingtDate = moment().format('DD-MM-YYYY')
+    const closingDate = moment()
+      .add(req.body.adDuration, 'days')
+      .format('DD-MM-YYYY')
+    let data = await pool
+      .query(
+        `
+      call insertNewAdvertisement($1, $2, $3, $4, $5, $6, $7, $8)
+    `,
+        [
+          req.body.minPrice,
+          openingtDate,
+          closingDate,
+          req.body.minIncrease,
+          req.body.userid,
+          req.body.itemid,
+          req.body.duration,
+          req.body.availability,
+        ],
+      )
+      .catch((err) => console.log(err))
+    res.send({
+      data,
+    })
+  },
+)
 
 app.post(
   '/insertbid',
@@ -522,7 +632,9 @@ app.post(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
     const currentDate = moment().format('MM-DD-YYYY')
     let data = await pool
@@ -533,7 +645,9 @@ app.post(
         [req.body.borrowerId, req.body.advId, currentDate, req.body.bidPrice],
       )
       .catch((err) => console.log(err))
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
@@ -544,7 +658,9 @@ app.post(
 app.get('/users/events', [query('userId').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      errors: errors.array(),
+    })
   }
   let data = await pool.query(
     `
@@ -554,7 +670,9 @@ app.get('/users/events', [query('userId').isInt()], async (req, res) => {
     `,
     [req.query.userId],
   )
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 app.post(
@@ -568,7 +686,9 @@ app.post(
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
+      return res.status(400).json({
+        errors: errors.array(),
+      })
     }
     let data
 
@@ -587,17 +707,23 @@ app.post(
         ],
       )
     } catch (error) {
-      res.status(400).json({ errors: error })
+      res.status(400).json({
+        errors: error,
+      })
     }
 
-    res.send({ data })
+    res.send({
+      data,
+    })
   },
 )
 
 app.delete('/events', [query('eventId').isInt()], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      errors: errors.array(),
+    })
   }
   let data = await pool.query(
     `
@@ -605,7 +731,9 @@ app.delete('/events', [query('eventId').isInt()], async (req, res) => {
     `,
     [req.query.eventId],
   )
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 // *************************** //
@@ -624,7 +752,9 @@ app.get('/enemy', async (req, res) => {
 
 app.get('/popular', async (req, res) => {
   const data = await pool.query('select * from popularItem')
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 // ******************* //
@@ -636,7 +766,9 @@ app.get('/reports', async (req, res) => {
     req.query.userId,
   ])
 
-  res.send({ data })
+  res.send({
+    data,
+  })
 })
 
 app.post('/reports', async (req, res) => {
