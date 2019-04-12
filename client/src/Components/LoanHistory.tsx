@@ -2,6 +2,7 @@ import React, { Component } from 'react'
 import axios from 'axios'
 import _ from 'lodash'
 import { Card, CardDeck, Button, OverlayTrigger } from 'react-bootstrap'
+import moment from 'moment'
 
 import { parseMDYLongDate } from '../util/moment'
 
@@ -51,6 +52,11 @@ class LoanHistory extends Component<MyProps, MyState> {
     await this.fetchLoanHistory()
   }
 
+  isDateReached = (startdate: any) =>
+    moment()
+      .startOf('d')
+      .isSameOrAfter(moment(startdate), 'd')
+
   render() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
@@ -98,6 +104,7 @@ class LoanHistory extends Component<MyProps, MyState> {
                 onClick={() =>
                   this.handleDeclareReturn(_.get(row, 'invoiceid'))
                 }
+                disabled={!this.isDateReached(_.get(row, 'startdate'))}
               >
                 Declare Item Return
               </Button>

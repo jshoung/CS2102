@@ -2,6 +2,7 @@ import React, { Component } from 'react'
 import axios from 'axios'
 import _ from 'lodash'
 import { Card, CardDeck, Button, OverlayTrigger } from 'react-bootstrap'
+import moment from 'moment'
 
 import { parseMDYLongDate } from '../util/moment'
 
@@ -43,6 +44,11 @@ class BorrowedList extends Component<MyProps, MyState> {
     this.setState({ userId: userId, ...data })
   }
 
+  isDateReached = (startdate: any) =>
+    moment()
+      .startOf('d')
+      .isSameOrAfter(moment(startdate), 'd')
+
   render() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
@@ -81,10 +87,14 @@ class BorrowedList extends Component<MyProps, MyState> {
             </Card.Text>
           </Card.Body>
           <Card.Footer>
-            {_.get(row, 'isreturned') ? (
-              'Item has been returned'
+            {this.isDateReached(_.get(row, 'startdate')) ? (
+              _.get(row, 'isreturned') ? (
+                'Item has been returned'
+              ) : (
+                <strong>You have yet to return this item!</strong>
+              )
             ) : (
-              <strong>You have yet to return this item!</strong>
+              'This item will be in your hands soon!'
             )}
           </Card.Footer>
         </Card>
