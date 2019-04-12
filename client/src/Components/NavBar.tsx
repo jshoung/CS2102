@@ -28,7 +28,11 @@ const NavBar = (props: OwnProps) => {
           <li className="nav-item">
             <Link
               className="nav-link"
-              onClick={() => changePage('Browse Items')}
+              onClick={
+                _.isEmpty(selectedUser)
+                  ? (e) => e.preventDefault()
+                  : () => changePage('Browse Items')
+              }
               to="/"
             >
               {'Browse Items'}
@@ -37,7 +41,11 @@ const NavBar = (props: OwnProps) => {
           <li className="nav-item">
             <Link
               className="nav-link"
-              onClick={() => changePage('Interest Groups')}
+              onClick={
+                _.isEmpty(selectedUser)
+                  ? (e) => e.preventDefault()
+                  : () => changePage('Interest Groups')
+              }
               to="/"
             >
               {'Interest Groups'}

@@ -50,6 +50,11 @@ class BrowseItems extends Component<MyProps, MyState> {
     const loanerId = _.get(row, 'userid')
     const itemId = _.get(row, 'itemid')
 
+    if (loanerId === userId) {
+      this.showErrorModal("You can't borrow your own item!")
+      return
+    }
+
     await axios
       .post('/users/loans', {
         loanerId: loanerId,

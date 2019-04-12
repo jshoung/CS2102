@@ -471,7 +471,7 @@ class Main extends Component {
                       onSelect={() => this.changeTab('Complex Queries')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Complex Queries
+                      Statistics
                     </Nav.Link>
                   </Nav.Item>
                 </Nav>
