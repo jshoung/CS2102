@@ -125,6 +125,17 @@ app.post('/users/items', [body('userId').isInt()], async (req, res) => {
 })
 
 app.post('/add-item', async (req, res) => {
+  // Check whether user is a loaner
+  const { rowCount } = await pool.query(
+    'select userId from loaner where userId = $1',
+    [req.body.userId],
+  )
+  if (!rowCount) {
+    await pool.query('insert into loaner (userid) values ($1)', [
+      req.body.userId,
+    ])
+  }
+
   await pool.query(
     'insert into loaneritem (itemname, value, itemdescription, userid, loanfee, loanduration) values ($1, $2, $3, $4, $5, $6)',
     [
@@ -167,6 +178,17 @@ app.post(
     body('itemId').isInt(),
   ],
   async (req, res) => {
+    // Check whether user is a borrower
+    const { rowCount } = await pool.query(
+      'select userId from borrower where userId = $1',
+      [req.body.borrowerId],
+    )
+    if (!rowCount) {
+      await pool.query('insert into borrower (userid) values ($1)', [
+        req.body.borrowerId,
+      ])
+    }
+
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() })
