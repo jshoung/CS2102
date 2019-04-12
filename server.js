@@ -290,10 +290,11 @@ app.get(
     // Getting InvoicedLoan object where userId = loanerID
     if (req.query.isLoaner === 'true') {
       data = await pool.query(
-        `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID,itemName, value, itemDescription, name, isReturned
+        `select startDate,endDate,penalty,IL.loanFee,loanerID,borrowerID,invoiceID,IL.itemID,itemName, value, itemDescription, name, isReturned
         from (InvoicedLoan IL 
-              natural join 
-              LoanerItem)
+              inner join 
+              LoanerItem LI
+              on IL.itemid = LI.itemid and IL.loanerid = LI.userid)
               inner join UserAccount UA
               on IL.borrowerID = UA.userID
           where IL.loanerID = $1 order by startDate desc`,
@@ -302,13 +303,14 @@ app.get(
     } else {
       // Otherwise
       data = await pool.query(
-        `select startDate,endDate,penalty,loanFee,loanerID,borrowerID,invoiceID,itemID,itemName, value, itemDescription,name, isReturned
+        `select startDate,endDate,penalty,IL.loanFee,loanerID,borrowerID,invoiceID,IL.itemID,itemName, value, itemDescription,name, isReturned
         from InvoicedLoan IL 
-              natural join 
-              LoanerItem
-              inner join UserAccount UA
-              on IL.loanerID = UA.userID
-          where IL.borrowerID = $1 order by startDate desc`,
+                      inner join 
+                      LoanerItem LI
+                      on IL.itemid = LI.itemid and IL.loanerid = LI.userid
+                      inner join UserAccount UA
+                      on IL.loanerID = UA.userID
+                  where IL.borrowerID = $1 order by startDate desc`,
         [req.query.userId],
       )
     }
@@ -505,6 +507,50 @@ app.post(
     res.send({ data })
   },
 )
+
+// ***************** //
+//       Chooses        //
+// ***************** //
+
+app.get('/chooses', async (req, res) => {
+  const data = await pool.query('select * from chooses')
+
+  res.send({ data })
+})
+
+app.post('/chooses', async (req, res) => {
+  const currentDate = moment().format('MM-DD-YYYY')
+  try {
+    await pool.query('call insertNewChooses($1, $2, $3, $4)', [
+      req.body.bidid,
+      req.body.userid,
+      req.body.advid,
+      currentDate,
+    ])
+  } catch (error) {
+    return res.status(400).json(error)
+  }
+
+  res.sendStatus(200)
+})
+
+app.delete('/chooses', async (req, res) => {
+  await pool.query('call deleteChooses($1, $2)', [
+    req.body.userid,
+    req.body.advid,
+  ])
+  res.sendStatus(200)
+})
+
+// ***************** //
+//       Bids        //
+// ***************** //
+
+app.get('/bids', async (req, res) => {
+  const data = await pool.query('select * from bid')
+
+  res.send({ data })
+})
 
 // *************************** //
 //       Advertisements        //
