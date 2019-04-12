@@ -645,10 +645,10 @@ app.post(
         errors: errors.array(),
       })
     }
-    const openingtDate = moment().format('DD-MM-YYYY')
-    const closingDate = moment()
+    const openingDate = moment(req.body.availability).format('MM-DD-YYYY')
+    const closingDate = moment(req.body.availability)
       .add(req.body.adDuration, 'days')
-      .format('DD-MM-YYYY')
+      .format('MM-DD-YYYY')
     let data = await pool
       .query(
         `
@@ -656,13 +656,15 @@ app.post(
     `,
         [
           req.body.minPrice,
-          openingtDate,
+          openingDate,
           closingDate,
           req.body.minIncrease,
           req.body.userid,
           req.body.itemid,
           req.body.duration,
-          req.body.availability,
+          moment(req.body.availability)
+            .add(1, 'w')
+            .format('MM-DD-YYYY'),
         ],
       )
       .catch((err) => console.log(err))

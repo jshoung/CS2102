@@ -2,6 +2,7 @@ import React, { Component, FormEvent } from 'react'
 import * as _ from 'lodash'
 import { Form, Button } from 'react-bootstrap'
 import axios from 'axios'
+import moment from 'moment'
 
 class Advertise extends Component<
   { item: any; loadTabData: any },
@@ -15,20 +16,8 @@ class Advertise extends Component<
 > {
   constructor(props: any) {
     super(props)
-    const date = new Date()
-    const nextYear =
-      date.getFullYear() +
-      1 +
-      '-' +
-      ((date.getMonth() + 1).toString().length < 2
-        ? '0' + (date.getMonth() + 1)
-        : date.getMonth() + 1) +
-      '-' +
-      (date.getDate().toString().length < 2
-        ? '0' + date.getDate()
-        : date.getDate())
     this.state = {
-      availability: nextYear,
+      availability: moment(),
       minIncrease: 0,
       adDuration: 0,
       minPrice: 0,
@@ -37,19 +26,13 @@ class Advertise extends Component<
   }
 
   advertise = async (event: any) => {
-    event.preventDefault()
     const { item } = this.props
-    let { availability } = this.state
+    const { availability } = this.state
     const { minIncrease, adDuration, minPrice, itemDescription } = this.state
     const duration = _.get(item, 'loanduration')
     const itemid = _.get(item, 'itemid')
     const userid = _.get(item, 'userid')
-    availability =
-      availability.split('-')[2] +
-      '-' +
-      availability.split('-')[1] +
-      '-' +
-      availability.split('-')[0]
+
     if (itemDescription !== _.get(item, 'itemdescription')) {
       _.set(item, 'itemdescription', itemDescription)
       await axios.patch('/add-item', item)
@@ -63,7 +46,8 @@ class Advertise extends Component<
       itemid,
       userid,
     })
-    this.props.loadTabData()
+    await this.props.loadTabData()
+    event.preventDefault()
   }
 
   handleChange = (event: any) => {
@@ -80,7 +64,7 @@ class Advertise extends Component<
     return (
       <Form onSubmit={this.advertise}>
         <Form.Group>
-          <Form.Label>Item Availability</Form.Label>
+          <Form.Label>Start Of Advertisement</Form.Label>
           <Form.Control
             name="availability"
             type="date"
@@ -88,7 +72,7 @@ class Advertise extends Component<
             value={this.state.availability}
             required
           />
-          <Form.Label>Duration of Advertisment(in days)</Form.Label>
+          <Form.Label>Duration of Advertisment (Days)</Form.Label>
           <Form.Control
             name="adDuration"
             type="number"
