@@ -68,11 +68,11 @@ class BorrowedList extends Component<MyProps, MyState> {
               'name',
             )}`}</Card.Subtitle>
             <Card.Text>
-              {`Start Date: ${parseMDYLongDate(
+              {`Loan Period: ${parseMDYLongDate(
                 _.get(row, 'startdate'),
-              )} End Date: ${parseMDYLongDate(_.get(row, 'enddate'))}`}{' '}
+              )} to ${parseMDYLongDate(_.get(row, 'enddate'))}`}{' '}
               <br />
-              {`Loan Fee: ${_.get(row, 'loanfee')} Penalty: ${_.get(
+              {`Loan Fee: $${_.get(row, 'loanfee')} Penalty: $${_.get(
                 row,
                 'penalty',
               )}`}{' '}

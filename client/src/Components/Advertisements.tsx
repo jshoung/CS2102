@@ -1,8 +1,10 @@
 import React, { Component } from 'react'
 import * as _ from 'lodash'
+import moment from 'moment'
 import { CardDeck, Card } from 'react-bootstrap'
 import Bid from './Bid'
 import axios from 'axios'
+import { parseMDYLongDate } from '../util/moment'
 
 class Advertisements extends Component<{
   loadTabData: any
@@ -26,34 +28,22 @@ class Advertisements extends Component<{
     const { advertisements, userList, items, currentUser } = this.props
     let content: any[] = []
     advertisements.forEach((advertisement) => {
-      const currentDate = new Date()
+      const currentDate = moment()
       const userid = _.get(advertisement, 'advertiser')
       const username = userList[userid]
       const itemid = advertisement.itemid
       const itemName = items[itemid].itemname
       const highestBidderId = advertisement.highestbidder
       const highestBidder = userList[highestBidderId]
-      const opening = new Date(advertisement.openingdate)
-      const closing = new Date(advertisement.closingdate)
+      const opening = moment(advertisement.openingdate)
+      const closing = moment(advertisement.closingdate)
       if (
         currentUser.userId === userid ||
-        currentDate < opening ||
-        currentDate > closing
+        currentDate.isBefore(opening) ||
+        currentDate.isAfter(closing)
       ) {
         return
       }
-      const openingDate =
-        opening.getDate() +
-        '/' +
-        (opening.getMonth() + 1) +
-        '/' +
-        opening.getFullYear()
-      const closingDate =
-        closing.getDate() +
-        '/' +
-        (closing.getMonth() + 1) +
-        '/' +
-        closing.getFullYear()
       let currentBid = null
       if (advertisement.highestbid !== null) {
         currentBid = (
@@ -88,12 +78,13 @@ class Advertisements extends Component<{
             <Card.Body>
               <Card.Title>{itemName}</Card.Title>
               <Card.Subtitle className={'mb-2'}>
-                Minimum Price: ${advertisement.minimumprice}
+                Minimum Bid: ${advertisement.minimumprice}
               </Card.Subtitle>
               <Card.Text>
                 Advertised by: {username}
                 <br />
-                Bidding Time: {openingDate} to {closingDate}
+                Bidding Period: {parseMDYLongDate(opening)} to{' '}
+                {parseMDYLongDate(closing)}
               </Card.Text>
               {currentBid}
               {currentBidder}
