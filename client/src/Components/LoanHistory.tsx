@@ -70,8 +70,11 @@ class LoanHistory extends Component<MyProps, MyState> {
           style={{ width: '18rem' }}
         >
           <Card.Body>
-            <Card.Title>{`Loaned ${_.get(row, 'itemname')}`}</Card.Title>
-            <Card.Subtitle>{`Loaned to ${_.get(row, 'name')}`}</Card.Subtitle>
+            <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
+            <Card.Subtitle className={'mb-2'}>{`Loaned to ${_.get(
+              row,
+              'name',
+            )}`}</Card.Subtitle>
             <Card.Text>
               {`Start Date: ${parseMDYLongDate(
                 _.get(row, 'startdate'),

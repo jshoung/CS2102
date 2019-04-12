@@ -35,6 +35,13 @@ class Advertisements extends Component<{
       const highestBidder = userList[highestBidderId]
       const opening = new Date(advertisement.openingdate)
       const closing = new Date(advertisement.closingdate)
+      if (
+        currentUser.userId === userid ||
+        currentDate < opening ||
+        currentDate > closing
+      ) {
+        return
+      }
       const openingDate =
         opening.getDate() +
         '/' +
@@ -49,9 +56,11 @@ class Advertisements extends Component<{
         closing.getFullYear()
       let currentBid = null
       if (advertisement.highestbid !== null) {
-        currentBid = <Card.Subtitle>
-          Current Bid: ${advertisement.highestbid}
-        </Card.Subtitle>
+        currentBid = (
+          <Card.Subtitle className={'mb-2'}>
+            Current Bid: ${advertisement.highestbid}
+          </Card.Subtitle>
+        )
       }
       let nextBid = advertisement.minimumprice
       let currentBidder = null
@@ -59,21 +68,14 @@ class Advertisements extends Component<{
         currentBidder = <Card.Text>By: {highestBidder}</Card.Text>
         nextBid = advertisement.highestbid + advertisement.minimumincrease
       }
-      let bid = null
-      if (currentUser.userId === userid) {
-        bid = <h3>You can't bid for your own items!</h3>
-      } else if (currentDate < opening || currentDate > closing) {
-        bid = <h3>Closed for bidding!</h3>
-      } else {
-        bid = (
-          <Bid
-            advid={advertisement.advid}
-            placeBid={this.placeBid}
-            nextBid={nextBid}
-          />
-        )
-      }
-      
+      const bid = (
+        <Bid
+          advid={advertisement.advid}
+          placeBid={this.placeBid}
+          nextBid={nextBid}
+        />
+      )
+
       content.push(
         <CardDeck style={{ paddingBottom: '10px' }}>
           <Card
@@ -85,7 +87,7 @@ class Advertisements extends Component<{
           >
             <Card.Body>
               <Card.Title>{itemName}</Card.Title>
-              <Card.Subtitle>
+              <Card.Subtitle className={'mb-2'}>
                 Minimum Price: ${advertisement.minimumprice}
               </Card.Subtitle>
               <Card.Text>
@@ -93,11 +95,10 @@ class Advertisements extends Component<{
                 <br />
                 Bidding Time: {openingDate} to {closingDate}
               </Card.Text>
-                {currentBid}
-                {currentBidder}
-              <Card.Subtitle>
-                Next Possible Bid: $
-                {nextBid}
+              {currentBid}
+              {currentBidder}
+              <Card.Subtitle className={'mb-2'}>
+                Next Possible Bid: ${nextBid}
               </Card.Subtitle>
             </Card.Body>
             <Card.Footer>{bid}</Card.Footer>
@@ -105,6 +106,7 @@ class Advertisements extends Component<{
         </CardDeck>,
       )
     })
+
     return <div>{content}</div>
   }
 }

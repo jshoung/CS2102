@@ -454,20 +454,11 @@ class Main extends Component {
                   </Nav.Item>
                   <Nav.Item>
                     <Nav.Link
-                      eventKey="Interest Groups"
-                      onSelect={() => this.changeTab('Interest Groups')}
-                      disabled={_.isEmpty(selectedUser)}
-                    >
-                      Groups
-                    </Nav.Link>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <Nav.Link
                       eventKey="Loan History"
                       onSelect={() => this.changeTab('Loan History')}
                       disabled={_.isEmpty(selectedUser)}
                     >
-                      Loans
+                      Transactions
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
@@ -477,6 +468,15 @@ class Main extends Component {
                       disabled={_.isEmpty(selectedUser)}
                     >
                       Advertisements
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      eventKey="Interest Groups"
+                      onSelect={() => this.changeTab('Interest Groups')}
+                      disabled={_.isEmpty(selectedUser)}
+                    >
+                      Groups
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>

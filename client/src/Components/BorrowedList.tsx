@@ -56,15 +56,17 @@ class BorrowedList extends Component<MyProps, MyState> {
       <CardDeck style={{ paddingBottom: '10px' }}>
         <Card
           className="text-center"
-          bg="dark"
+          bg="primary"
           text="white"
           border="dark"
           style={{ width: '18rem' }}
         >
           <Card.Body>
-            <Card.Title>{`Borrowed ${_.get(row, 'itemname')}`}</Card.Title>
-            <Card.Subtitle />
-            <Card.Subtitle>{`Item Owner: ${_.get(row, 'name')}`}</Card.Subtitle>
+            <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
+            <Card.Subtitle className={'mb-2'}>{`Borrowed from ${_.get(
+              row,
+              'name',
+            )}`}</Card.Subtitle>
             <Card.Text>
               {`Start Date: ${parseMDYLongDate(
                 _.get(row, 'startdate'),
@@ -79,9 +81,11 @@ class BorrowedList extends Component<MyProps, MyState> {
             </Card.Text>
           </Card.Body>
           <Card.Footer>
-            {_.get(row, 'isreturned')
-              ? 'Item has been returned'
-              : 'You have yet to returned this item'}
+            {_.get(row, 'isreturned') ? (
+              'Item has been returned'
+            ) : (
+              <strong>You have yet to return this item!</strong>
+            )}
           </Card.Footer>
         </Card>
       </CardDeck>

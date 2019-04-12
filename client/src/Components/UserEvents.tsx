@@ -105,7 +105,9 @@ class UserEvents extends Component<MyProps, MyState> {
           >
             <Card.Body>
               <Card.Title>{eventName}</Card.Title>
-              <Card.Subtitle>{`Organized by ${organizer} `}</Card.Subtitle>
+              <Card.Subtitle
+                className={'mb-2'}
+              >{`Organized by ${organizer} `}</Card.Subtitle>
               <Card.Text>
                 {`Date of Event: ${parseMDYLongDate(eventDate)}`} <br />
                 {`Venue: ${venue}`}
