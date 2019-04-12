@@ -28,6 +28,7 @@ import UserEvents from '../Components/UserEvents'
 import Advertisements from '../Components/Advertisements'
 import ComplexQueries from '../Components/ComplexQueries'
 import { parseMDYLongDate } from '../util/moment'
+import Advertise from '../Components/Advertise'
 
 class Main extends Component {
   state = {
@@ -90,6 +91,15 @@ class Main extends Component {
     const { userItems, selectedUser } = this.state
 
     userItems.forEach((row) => {
+      const ad = (
+        <Popover
+          id="popover-basic"
+          title="Advertise"
+          style={{ width: '18rem' }}
+        >
+          <Advertise item={row} loadTabData={this.loadTabData} />
+        </Popover>
+      )
       const popover = (
         <Popover
           id="popover-basic"
@@ -137,11 +147,16 @@ class Main extends Component {
               </Card.Text>
             </Card.Body>
             <Card.Footer>
-              <div>
+              <OverlayTrigger
+                rootClose={true}
+                trigger="click"
+                placement="auto"
+                overlay={ad}
+              >
                 <Button variant="light" size="sm">
-                  Put Up For Loan
+                  Advertise
                 </Button>
-              </div>
+              </OverlayTrigger>
             </Card.Footer>
           </Card>
         </CardDeck>,
