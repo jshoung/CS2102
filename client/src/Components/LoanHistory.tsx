@@ -2,6 +2,7 @@ import React, { Component } from 'react'
 import axios from 'axios'
 import _ from 'lodash'
 import { Card, CardDeck, Button, OverlayTrigger } from 'react-bootstrap'
+import moment from 'moment'
 
 import { parseMDYLongDate } from '../util/moment'
 
@@ -58,6 +59,11 @@ class LoanHistory extends Component<MyProps, MyState> {
     await this.fetchLoanHistory()
   }
 
+  isDateReached = (startdate: any) =>
+    moment()
+      .startOf('d')
+      .isSameOrAfter(moment(startdate), 'd')
+
   render() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
@@ -77,18 +83,22 @@ class LoanHistory extends Component<MyProps, MyState> {
           style={{ width: '18rem' }}
         >
           <Card.Body>
-            <Card.Title>{`Loaned ${_.get(row, 'itemname')}`}</Card.Title>
-            <Card.Subtitle>{`Loaned to ${_.get(row, 'name')}`}</Card.Subtitle>
+            <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
+            <Card.Subtitle className={'mb-2'}>{`Loaned to ${_.get(
+              row,
+              'name',
+            )}`}</Card.Subtitle>
             <Card.Text>
-              {`Start Date: ${parseMDYLongDate(
+              {`Loan Period: ${parseMDYLongDate(
                 _.get(row, 'startdate'),
-              )} End Date: ${parseMDYLongDate(_.get(row, 'enddate'))}`}{' '}
+              )} to ${parseMDYLongDate(_.get(row, 'enddate'))}`}{' '}
               <br />
-              {`Loan Fee: ${_.get(row, 'loanfee')} Penalty: ${_.get(
+              {`Loan Fee: $${_.get(row, 'loanfee')} Penalty: $${_.get(
                 row,
                 'penalty',
               )}`}{' '}
               <br />
+              Item Description: {_.get(row, 'itemdescription')}
             </Card.Text>
           </Card.Body>
           <Card.Footer>
@@ -103,6 +113,7 @@ class LoanHistory extends Component<MyProps, MyState> {
                   onClick={() =>
                     this.handleDeclareReturn(_.get(row, 'invoiceid'))
                   }
+                  disabled={!this.isDateReached(_.get(row, 'startdate'))}
                 >
                   Declare Item Return
                 </Button>
@@ -113,6 +124,7 @@ class LoanHistory extends Component<MyProps, MyState> {
                   onClick={() =>
                     this.handleDeclareLost(_.get(row, 'invoiceid'))
                   }
+                  disabled={!this.isDateReached(_.get(row, 'startdate'))}
                 >
                   Declare Item Lost
                 </Button>

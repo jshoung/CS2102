@@ -85,9 +85,14 @@ class BrowseItems extends Component<MyProps, MyState> {
           >
             <Card.Body>
               <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
-              <Card.Subtitle>
-                {`Item Owner: ${_.get(row, 'ownername')}`} <br />
-                Price: ${_.get(row, 'value')}
+              <Card.Subtitle className={'mb-2'}>
+                {`Item Owner: ${_.get(row, 'ownername')}`}
+              </Card.Subtitle>
+              <Card.Subtitle className={'mb-2'}>
+                {`Loan Fee: $${_.get(row, 'loanfee')}`}
+              </Card.Subtitle>
+              <Card.Subtitle className={'mb-2'}>
+                {`Loan Duration: ${_.get(row, 'loanduration')} Days`}
               </Card.Subtitle>
               <Card.Text>
                 Item Description: {itemDescription ? itemDescription : ' - '}

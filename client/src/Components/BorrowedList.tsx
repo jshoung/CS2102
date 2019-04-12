@@ -2,6 +2,7 @@ import React, { Component } from 'react'
 import axios from 'axios'
 import _ from 'lodash'
 import { Card, CardDeck, Button, OverlayTrigger } from 'react-bootstrap'
+import moment from 'moment'
 
 import { parseMDYLongDate } from '../util/moment'
 
@@ -43,6 +44,11 @@ class BorrowedList extends Component<MyProps, MyState> {
     this.setState({ userId: userId, ...data })
   }
 
+  isDateReached = (startdate: any) =>
+    moment()
+      .startOf('d')
+      .isSameOrAfter(moment(startdate), 'd')
+
   render() {
     const { selectedUser } = this.props
     const userId = _.get(selectedUser, 'userId')
@@ -56,21 +62,23 @@ class BorrowedList extends Component<MyProps, MyState> {
       <CardDeck style={{ paddingBottom: '10px' }}>
         <Card
           className="text-center"
-          bg="dark"
+          bg="primary"
           text="white"
           border="dark"
           style={{ width: '18rem' }}
         >
           <Card.Body>
-            <Card.Title>{`Borrowed ${_.get(row, 'itemname')}`}</Card.Title>
-            <Card.Subtitle />
-            <Card.Subtitle>{`Item Owner: ${_.get(row, 'name')}`}</Card.Subtitle>
+            <Card.Title>{`${_.get(row, 'itemname')}`}</Card.Title>
+            <Card.Subtitle className={'mb-2'}>{`Borrowed from ${_.get(
+              row,
+              'name',
+            )}`}</Card.Subtitle>
             <Card.Text>
-              {`Start Date: ${parseMDYLongDate(
+              {`Loan Period: ${parseMDYLongDate(
                 _.get(row, 'startdate'),
-              )} End Date: ${parseMDYLongDate(_.get(row, 'enddate'))}`}{' '}
+              )} to ${parseMDYLongDate(_.get(row, 'enddate'))}`}{' '}
               <br />
-              {`Loan Fee: ${_.get(row, 'loanfee')} Penalty: ${_.get(
+              {`Loan Fee: $${_.get(row, 'loanfee')} Penalty: $${_.get(
                 row,
                 'penalty',
               )}`}{' '}
@@ -79,9 +87,15 @@ class BorrowedList extends Component<MyProps, MyState> {
             </Card.Text>
           </Card.Body>
           <Card.Footer>
-            {_.get(row, 'isreturned')
-              ? 'Item has been returned'
-              : 'You have yet to returned this item'}
+            {this.isDateReached(_.get(row, 'startdate')) ? (
+              _.get(row, 'isreturned') ? (
+                'Item has been returned'
+              ) : (
+                <strong>You have yet to return this item!</strong>
+              )
+            ) : (
+              'This item will be in your hands soon!'
+            )}
           </Card.Footer>
         </Card>
       </CardDeck>
